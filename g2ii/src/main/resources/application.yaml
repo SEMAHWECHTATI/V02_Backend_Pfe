@@ -1,0 +1,58 @@
+server:
+  port: 8070
+
+spring:
+
+
+  application:
+    name: g2ii
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: it.informatique.service@gmail.com   # Remplacez par votre vraie adresse
+    password: ztcf dhkn kjee hfve # ⚠️ Lisez la note importante ci-dessous !
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  datasource:
+    # URL pour une base en mémoire. 'testdb' est le nom de la base.
+    url: jdbc:h2:mem:db_pfe
+    driver-class-name: org.h2.Driver
+    username: sameh
+    password:
+
+  h2:
+    console:
+        # Active l'interface graphique à l'adresse http://localhost:8080/h2-console
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+  jpa:
+    hibernate:
+      # J'ai remis "update" au lieu de "create-drop" pour que vous ne perdiez pas
+      # vos données à chaque redémarrage !
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+logging:
+  level:
+    root: INFO
+    com.sagem.g2ii: DEBUG
+  file:
+    name: /app/logs/g2ii.log
+
+# JWT Configuration
+app:
+  jwt:
+    secret: mySecretKeyForJWTTokenGenerationThatMustBeAtLeast256Bits
+    expiration: 86400000  # 24 heures en millisecondes
+

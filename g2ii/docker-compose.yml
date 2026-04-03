@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  ma-base-g2ii:
+    image: postgres:latest
+    container_name: ma-base-g2ii
+    environment:
+      POSTGRES_DB: ouechtati
+      POSTGRES_USER: sameh
+      POSTGRES_PASSWORD: sameh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sameh -d ouechtati"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-app:
+    image: g2ii-backend-app:latest
+    container_name: g2ii-app-container
+    ports:
+      - "8082:8082"
+    depends_on:
+      ma-base-g2ii:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ma-base-g2ii:5432/ouechtati
+      - SPRING_DATASOURCE_USERNAME=sameh
+      - SPRING_DATASOURCE_PASSWORD=sameh
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_PROFILES_ACTIVE=prod
