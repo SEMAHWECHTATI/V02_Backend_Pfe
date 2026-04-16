@@ -3,6 +3,7 @@ package com.sagem.g2ii.Entity.Authentification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.sagem.g2ii.Entity.Enumeration.GroupeTechnicien;
+import com.sagem.g2ii.Entity.Intervention.Categorie;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -37,4 +38,7 @@ public class Groupe {
     private List<Utilisateur> utilisateurs;
 
 
+    @OneToMany(mappedBy = "groupeResponsable")
+    @JsonIgnore // 👈 AJOUTEZ CECI SI VOUS AVEZ CETTE LISTE
+    private List<Categorie> categories;
 }

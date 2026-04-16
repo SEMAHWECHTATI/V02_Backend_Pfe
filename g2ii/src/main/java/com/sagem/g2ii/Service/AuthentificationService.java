@@ -1,9 +1,9 @@
 package com.sagem.g2ii.Service;
 
-
 import com.sagem.g2ii.DTOs.LoginRequest;
 import com.sagem.g2ii.DTOs.LoginResponse;
 import com.sagem.g2ii.Entity.Authentification.Utilisateur;
+import com.sagem.g2ii.Entity.Enumeration.ActionAudit;
 import com.sagem.g2ii.Entity.Enumeration.statutUtilisateur;
 import com.sagem.g2ii.Repository.IntUtilisateur;
 import com.sagem.g2ii.securiter.JwtService;
@@ -14,7 +14,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,70 +25,180 @@ public class AuthentificationService {
     private final IntUtilisateur utilisateurRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final JournalAuditService journalAuditService;
+    private final EmailService emailService;
 
-    // Remplacez LoginRequest et LoginResponse par vos propres classes DTO
     public LoginResponse authentifier(LoginRequest request) {
 
         // 1. Chercher l'utilisateur par son email
         Utilisateur user = utilisateurRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
 
-        // 2. Vérifier si le compte est déjà bloqué
+        // 2. Vérifier si le compte est bloqué DÉFINITIVEMENT par l'Admin
         if (user.getStatut() == statutUtilisateur.Bloque) {
-            throw new RuntimeException("Votre compte est bloqué suite à trop de tentatives infructueuses. Veuillez contacter l'administrateur.");
+            journalAuditService.enregistrerLog(ActionAudit.ECHEC_CONNEXION, "Tentative de connexion sur un compte bloqué définitivement", user);
+            throw new RuntimeException("Votre compte a été bloqué par un administrateur. Veuillez le contacter.");
         }
 
-        // 3. Vérifier le mot de passe
+        // 3. Vérification du blocage TEMPORAIRE (5 minutes)
+        if (user.getCompteBloqueJusqua() != null) {
+            if (user.getCompteBloqueJusqua().isAfter(LocalDateTime.now())) {
+                journalAuditService.enregistrerLog(ActionAudit.ECHEC_CONNEXION, "Tentative de connexion pendant le blocage temporaire (5 min)", user);
+                throw new RuntimeException("Compte temporairement bloqué suite à plusieurs échecs. Réessayez plus tard.");
+            } else {
+                user.setCompteBloqueJusqua(null);
+                user.setTentative_login(0);
+                utilisateurRepository.save(user);
+            }
+        }
+
+        // 4. Vérifier le mot de passe
         if (!passwordEncoder.matches(request.getMotDePasse(), user.getMotDePasse())) {
 
-            // ❌ ÉCHEC : Mauvais mot de passe ! On incrémente le compteur
-            int tentatives = user.getTentative_login() + 1;
+            int tentatives = (user.getTentative_login() == null ? 0 : user.getTentative_login()) + 1;
             user.setTentative_login(tentatives);
 
-            // Si on atteint 3 tentatives, on bloque le compte
             if (tentatives >= 3) {
-                user.setStatut(statutUtilisateur.Bloque);
-                utilisateurRepository.save(user); // On sauvegarde en base
-                throw new RuntimeException("Compte bloqué : 3 tentatives infructueuses.");
+                user.setCompteBloqueJusqua(LocalDateTime.now().plusMinutes(5));
+                utilisateurRepository.save(user);
+
+                journalAuditService.enregistrerLog(ActionAudit.BLOCAGE, "Compte bloqué pour 5 minutes suite à 3 tentatives infructueuses", user);
+                throw new RuntimeException("Compte bloqué pour 5 minutes : 3 tentatives infructueuses.");
             }
 
-            utilisateurRepository.save(user); // On sauvegarde la nouvelle tentative
-            throw new RuntimeException("Mot de passe incorrect (" + tentatives + "/3)");
+            utilisateurRepository.save(user);
+            journalAuditService.enregistrerLog(ActionAudit.ECHEC_CONNEXION, "Mot de passe incorrect (" + tentatives + "/3)", user);
+            throw new RuntimeException("Mot de passe incorrect (" + tentatives + "/3).");
         }
 
-        // 4. ✅ SUCCÈS : Le mot de passe est bon !
-        user.setTentative_login(0); // On remet le compteur à zéro
-        user.setDate_dernier_Connex(LocalDateTime.now()); // On met à jour la date de connexion
-        utilisateurRepository.save(user); // On sauvegarde en base
+        // 5. ✅ SUCCÈS : Le mot de passe est bon !
+        user.setTentative_login(0);
+        user.setDate_dernier_Connex(LocalDateTime.now());
+        user.setCompteBloqueJusqua(null);
+        utilisateurRepository.save(user);
 
-        // 5. Générer le fameux Token JWT
+        journalAuditService.enregistrerLog(ActionAudit.CONNEXION, "Connexion réussie", user);
+
+        // 6. Générer le Token JWT
         String jwtToken = jwtService.generateToken(user);
 
-        // 6. Renvoyer le Token au Frontend (Angular)
-        return LoginResponse.builder().token(jwtToken).build();    }
+        // 7. 📌 Construire la réponse COMPLÈTE avec tous les détails
+        return construireLoginResponse(user, jwtToken);
+    }
 
-    // N'oubliez pas l'import s'il manque : import java.util.Optional;
+    /**
+     * 📌 Construit une LoginResponse complète avec tous les détails de l'utilisateur
+     */
+    private LoginResponse construireLoginResponse(Utilisateur user, String jwtToken) {
+        // Mapper les groupes
+        List<LoginResponse.GroupeDTO> groupesDTOs = user.getGroupes() != null
+                ? user.getGroupes()
+                .stream()
+                .map(groupe -> LoginResponse.GroupeDTO.builder()
+                        .id(groupe.getId())
+                        .nomGroupes(groupe.getNomGroupes())
+                        .description(groupe.getDescription())
+                        .actif(groupe.isActif())
+                        .dateCreation(groupe.getDateCreation())
+                        .build())
+                .collect(Collectors.toList())
+                : List.of();
+
+        // Mapper les préférences
+        LoginResponse.PreferencesDTO preferencesDTO = null;
+        if (user.getPreferences() != null) {
+            preferencesDTO = LoginResponse.PreferencesDTO.builder()
+                    .id(user.getPreferences().getId())
+                    .typeAlerte(user.getPreferences().getTypeAlerte() != null
+                            ? user.getPreferences().getTypeAlerte().toString()
+                            : "INSCRIPTION")
+                    .canalEmail(user.getPreferences().isCanalEmail())
+                    .canalInApp(user.getPreferences().isCanalInApp())
+                    .actif(user.getPreferences().isActif())
+                    .build();
+        }
+
+        // 🟢 Construire et retourner la réponse COMPLÈTE
+        return LoginResponse.builder()
+                .id(user.getId())
+                .token(jwtToken)
+                .nom(user.getNom())
+                .prenom(user.getPrenom())
+                .email(user.getEmail())
+                .matricule(user.getMatricule())
+                .telephone(user.getTelephone())
+                .role(user.getRole())
+                .departement(user.getDepartement())
+                .statut(user.getStatut() != null
+                        ? user.getStatut().toString()
+                        : "Actif")
+                .groupes(groupesDTOs) // 📌 LES GROUPES !
+                .preferences(preferencesDTO)
+                .dateDernierConnex(user.getDate_dernier_Connex())
+                .dateCreationCompte(user.getDate_Creation_Compte())
+                .build();
+    }
 
     public boolean changerMotDePasse(String email, String nouveauMotDePasse) {
-        // 1. On cherche l'utilisateur dans la base de données
         Optional<Utilisateur> userOptional = utilisateurRepository.findByEmail(email);
 
         if (userOptional.isPresent()) {
             Utilisateur user = userOptional.get();
 
-            // 2. On crypte le nouveau mot de passe avant de le sauvegarder (TRÈS IMPORTANT)
             user.setMotDePasse(passwordEncoder.encode(nouveauMotDePasse));
-
-            // 3. Puisque l'utilisateur vient de changer son mot de passe,
-            // on s'assure que le système sait que ce n'est plus un mot de passe temporaire
             user.setMotDepassetemporaire(false);
-
-            // 4. On sauvegarde les modifications dans la base de données
             utilisateurRepository.save(user);
 
-            return true; // Le changement a réussi
+            journalAuditService.enregistrerLog(ActionAudit.CHANGEMENT_MDP, "L'utilisateur a changé son mot de passe avec succès", user);
+
+            return true;
         }
 
-        return false; // L'utilisateur n'existe pas
+        return false;
+    }
+
+    public void demanderReinitialisationMotDePasse(String email) {
+        Optional<Utilisateur> userOpt = utilisateurRepository.findByEmail(email);
+
+        if (userOpt.isPresent()) {
+            Utilisateur user = userOpt.get();
+
+            String token = UUID.randomUUID().toString();
+            user.setResetToken(token);
+            user.setResetTokenExpiration(LocalDateTime.now().plusMinutes(15));
+            utilisateurRepository.save(user);
+
+            journalAuditService.enregistrerLog(ActionAudit.RESET_MDP, "Demande de réinitialisation de mot de passe initiée", user);
+
+            emailService.evoymailrinitialisermotdepassse(email, token);
+        } else {
+            System.out.println("Tentative de réinitialisation pour un email inexistant : " + email);
+            throw new RuntimeException("Adresse email introuvable ou non enregistrée.");
+        }
+    }
+
+    public boolean reinitialiserMotDePasse(String token, String nouveauMotDePasse) {
+
+        Optional<Utilisateur> userOpt = utilisateurRepository.findByResetToken(token);
+
+        if (userOpt.isPresent()) {
+            Utilisateur user = userOpt.get();
+
+            if (user.getResetTokenExpiration().isBefore(LocalDateTime.now())) {
+                throw new RuntimeException("Le lien de réinitialisation a expiré.");
+            }
+
+            user.setMotDePasse(passwordEncoder.encode(nouveauMotDePasse));
+            user.setResetToken(null);
+            user.setResetTokenExpiration(null);
+
+            utilisateurRepository.save(user);
+
+            journalAuditService.enregistrerLog(ActionAudit.CHANGEMENT_MDP, "Mot de passe réinitialisé via la procédure 'Mot de passe oublié'", user);
+
+            return true;
+        }
+
+        throw new RuntimeException("Token de réinitialisation invalide.");
     }
 }

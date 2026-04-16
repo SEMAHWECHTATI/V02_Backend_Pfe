@@ -21,28 +21,30 @@ public class GroupeController {
     @Autowired
     private IntGroupe groupeRepo;
 
-    // 1. Lister tous les groupes (ex: Maintenance, Réseaux, etc.)
+    // 1. Lister tous les groupes
     @GetMapping("/all")
     public List<Groupe> getAllGroupes() {
-        return groupeservice.getAllGroupe();
+        List<Groupe> groupes = groupeservice.getAllGroupe();
+        System.out.println("📍 Groupes retournés:");
+        groupes.forEach(g -> System.out.println("   - " + g.getId() + ": " + g.getNomGroupes()));
+        return groupes;
     }
 
-    // 2. Créer un nouveau groupe technique
+    // 2. Créer un nouveau groupe
     @PostMapping("/creer")
     public Groupe creerGroupe(@RequestBody Groupe groupe) {
         return groupeservice.ajouterGroup(groupe);
     }
 
-    // 3. Récupérer un groupe avec ses membres (ses utilisateurs)
+    // 3. Récupérer un groupe par ID
     @GetMapping("/{id}")
     public Groupe getGroupeById(@PathVariable Long id) {
         return groupeservice.getGroupeById(id);
-
     }
 
-    // 4. Supprimer un groupe (si plus utilisé)
+    // 4. Supprimer un groupe
     @DeleteMapping("/supprimer/{id}")
     public void supprimerGroupe(@PathVariable Long id) {
-         groupeservice.deleteGroupe(id);
+        groupeservice.deleteGroupe(id);
     }
 }

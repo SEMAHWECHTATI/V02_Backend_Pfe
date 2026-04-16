@@ -18,6 +18,9 @@ public class DemandeReponseDTO {
     private String nom;
     private String prenom;
     private String email;
+    private String motifDemande;
+    private String matricule;
+    private String telephone;
     private departementService departement;
     private roleUtilisateur roleDemande;
     private statutDemandeInscription statut;

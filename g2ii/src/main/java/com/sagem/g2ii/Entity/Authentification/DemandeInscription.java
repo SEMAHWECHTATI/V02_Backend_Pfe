@@ -62,6 +62,9 @@ public class DemandeInscription {
     @Column
     private LocalDateTime dateTraitement;
 
+    @Column(columnDefinition = "boolean default false")
+    private boolean archivee = false;
+
     // Logique pour gérer la date de traitement automatiquement
     @PreUpdate
     protected void onUpdate() {

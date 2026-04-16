@@ -2,12 +2,14 @@ package com.sagem.g2ii.Controller;
 
 import com.sagem.g2ii.Entity.Enumeration.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/references") // Une URL générique pour vos listes de référence
+@RequestMapping("/api/enumerations") // Une URL générique pour vos listes de référence
+@CrossOrigin("*")
 public class EnumController {
 
     // 1. Endpoint pour récupérer les rôles
@@ -40,11 +42,32 @@ public class EnumController {
 
     @GetMapping("/Typealerte")
     public ResponseEntity<TypeAlerte[]> getTypealerte() {
+
         return ResponseEntity.ok(TypeAlerte.values());
     }
 
     @GetMapping("/statutUtilisateur")
     public ResponseEntity<statutUtilisateur[]> getStatutUtilisateur() {
         return ResponseEntity.ok(statutUtilisateur.values());
+    }
+
+    @GetMapping("/Priorite")
+    public ResponseEntity<Priorite[]> getPrioriter() {
+        return ResponseEntity.ok(Priorite.values());
+    }
+
+    @GetMapping("/TypeTicket")
+    public ResponseEntity<TypeTicket[]> getTypeTicket() {
+        return ResponseEntity.ok(TypeTicket.values());
+    }
+
+    @GetMapping("/StatutTicket")
+    public ResponseEntity<StatutTicket[]> getStatutTicket() {
+        return ResponseEntity.ok(StatutTicket.values());
+    }
+
+    @GetMapping("/TypeNote")
+    public ResponseEntity<TypeNote[]> getTypeNote() {
+        return ResponseEntity.ok(TypeNote.values());
     }
 }

@@ -4,6 +4,7 @@ import com.sagem.g2ii.DTOs.ApprobationDTO;
 import com.sagem.g2ii.DTOs.DemandeCreationDTO;
 import com.sagem.g2ii.DTOs.DemandeReponseDTO;
 import com.sagem.g2ii.Entity.Authentification.*;
+import com.sagem.g2ii.Entity.Email.EmailQueue;
 import com.sagem.g2ii.Entity.Enumeration.*;
 import com.sagem.g2ii.Repository.*;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,8 @@ public class DemandeService {
     private EmailService emailService;
     @Autowired
     private IntGroupe groupeRepo;
+    @Autowired
+    private EmailQueueRepository emailQueueRepo;
 
     // 1. Créer une nouvelle demande (Utilise le DTO Entrant)
     public DemandeReponseDTO creerDemande(DemandeCreationDTO dto) {
@@ -83,6 +86,7 @@ public class DemandeService {
                 .nom(demande.getNom())
                 .prenom(demande.getPrenom())
                 .email(demande.getEmail())
+                .motifDemande(demande.getMotifDemande())
                 .departement(demande.getDepartement())
                 .roleDemande(demande.getRoleDemande())
                 .statut(demande.getStatut())
@@ -138,12 +142,34 @@ public class DemandeService {
 
         utilisateurRepo.save(nouvelUtilisateur);
 
-        // ✅ On sécurise l'envoi d'email pour ne pas bloquer l'application
         try {
+            // Tentative d'envoi immédiat
             emailService.envoyerEmailBienvenue(nouvelUtilisateur.getEmail(), nouvelUtilisateur.getPrenom(), motDePasseTempClair);
-            System.out.println("Email envoyé avec succès !");
+            System.out.println("✅ Email envoyé avec succès en direct !");
         } catch (Exception e) {
-            System.err.println("⚠️ L'utilisateur a été créé, mais l'email a échoué. Cause : " + e.getMessage());
+            // 🚨 SI CA ECHOUE : ON SAUVEGARDE DANS LA TABLE EMAIL_QUEUE
+            System.err.println("⚠️ Échec envoi direct. Sauvegarde en base de données...");
+
+            EmailQueue emailAttente = new EmailQueue();
+            emailAttente.setDestinataire(nouvelUtilisateur.getEmail());
+            emailAttente.setSujet("Bienvenue ! Votre compte a été approuvé 🎉");
+            emailAttente.setContenu("Bonjour " +  nouvelUtilisateur.getPrenom() + ",\n\n"
+                    + "Votre demande d'inscription a été acceptée avec succès.\n\n"
+                    + "Voici vos identifiants pour vous connecter à l'application :\n"
+                    + "-------------------------------------------------\n"
+                    + "👤 Login (Email) : " + nouvelUtilisateur.getEmail() + "\n"
+                    + "🔑 Mot de passe  : " +  motDePasseTempClair + "\n"
+                    + "-------------------------------------------------\n\n"
+                    + "⚠️ Veuillez vous connecter et changer ce mot de passe immédiatement lors de votre première connexion.\n\n"
+                    + "Cordialement,\n"
+                    + "L'équipe Support IT");
+//            emailAttente.setContenu("Bonjour " + nouvelUtilisateur.getPrenom() + ", votre mot de passe est : " + motDePasseTempClair);
+            emailAttente.setEnvoye(false);
+            emailAttente.setTentatives(0);
+            emailAttente.setDernierErreur(e.getMessage());
+
+            emailQueueRepo.save(emailAttente); // C'est cette ligne qui remplit votre tableau !
+            System.out.println("📌 Email mis en file d'attente avec succès.");
         }
         // Audit mis à jour avec le rôle
         JournalAudit log = JournalAudit.builder()
@@ -175,6 +201,43 @@ public class DemandeService {
 
         demandeRepo.save(demande);
 
-        emailService.envoyerEmailRefus(demande.getEmail(), demande.getPrenom(), motif);
+
+        try {
+            emailService.envoyerEmailRefus(demande.getEmail(), demande.getPrenom(), motif);
+        } catch (Exception e) {
+            EmailQueue emailAttente = new EmailQueue();
+            emailAttente.setDestinataire(demande.getEmail());
+            emailAttente.setSujet("Mise à jour de votre demande d'inscription");
+            emailAttente.setContenu("Bonjour " + demande.getPrenom() + ",\n\n"
+                    + "Nous vous informons que votre demande d'inscription n'a malheureusement pas pu être acceptée.\n\n"
+                    + "Motif du refus : " + motif + "\n\n"
+                    + "Si vous pensez qu'il s'agit d'une erreur, veuillez contacter le support.\n\n"
+                    + "Cordialement,\n"
+                    + "L'équipe Support IT");
+            emailAttente.setEnvoye(false);
+            emailQueueRepo.save(emailAttente);
+        }
+    }
+
+    public void deletedemandeInscrip   (Long demandeId) {
+        demandeRepo.deleteById(demandeId);
+    }
+
+    public List<DemandeInscription> getDemandesActives() {
+        return demandeRepo.findByArchiveeFalse();
+    }
+
+    // 2. Obtenir les demandes archivées
+    public List<DemandeInscription> getDemandesArchivees() {
+        return demandeRepo.findByArchiveeTrue();
+    }
+
+    // 3. Archiver une demande
+    public DemandeInscription archiverDemande(Long id) {
+        DemandeInscription demande = demandeRepo.findById(id).orElseThrow();
+
+        demande.setArchivee(true); // On change le statut !
+        return demandeRepo.save(demande); // On sauvegarde
+
     }
 }

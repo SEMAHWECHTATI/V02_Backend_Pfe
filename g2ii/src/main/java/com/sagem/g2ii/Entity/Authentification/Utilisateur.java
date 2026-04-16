@@ -1,9 +1,12 @@
 package com.sagem.g2ii.Entity.Authentification;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Enumeration.departementService;
 import com.sagem.g2ii.Entity.Enumeration.roleUtilisateur;
 import com.sagem.g2ii.Entity.Enumeration.statutUtilisateur;
+import com.sagem.g2ii.Entity.Intervention.Ticket;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,6 +22,7 @@ import java.util.List;
 @ToString
 @AllArgsConstructor@NoArgsConstructor@Builder
 @Table(name = "Utilisateur")
+
 public class Utilisateur implements UserDetails {
 
     @Id
@@ -59,6 +63,9 @@ public class Utilisateur implements UserDetails {
     @Builder.Default
     private Integer tentative_login = 0;
 
+    @Column
+    private LocalDateTime compteBloqueJusqua;
+
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime date_Creation_Compte = LocalDateTime.now();
@@ -75,6 +82,11 @@ public class Utilisateur implements UserDetails {
             this.dateExpmdpTemp = this.date_Creation_Compte.plusHours(24);
         }
     }
+    // Un code unique généré pour l'occasion (ex: un UUID ou un code à 6 chiffres)
+    private String resetToken;
+
+    // La date limite d'utilisation de ce code (ex: valable 15 minutes)
+    private LocalDateTime resetTokenExpiration;
 
     @Column
     private LocalDateTime date_dernier_Connex;
@@ -93,42 +105,52 @@ public class Utilisateur implements UserDetails {
     @OneToOne(mappedBy = "utilisateur", cascade = CascadeType.ALL)
     private PreferenceNotification preferences;
 
+    @OneToMany(mappedBy = "demandeur")
+    @JsonIgnore// <--- Empêche de remonter au ticket depuis l'utilisateur
+    private List<Ticket> ticketsCrees;
 // =========================================================================
     // MÉTHODES OBLIGATOIRES DE L'INTERFACE UserDetails POUR SPRING SECURITY
     // =========================================================================
 
+    @JsonIgnore
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // On traduit votre rôle (ex: "Administrateur") pour Spring Security
         return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
     }
 
+    @JsonIgnore
     @Override
     public String getPassword() {
         return this.motDePasse; // On dit à Spring que le mot de passe est ici
     }
 
+    @JsonIgnore
     @Override
     public String getUsername() {
         return this.email; // Très important : C'est l'EMAIL qui sert d'identifiant !
     }
 
+    @JsonIgnore
     @Override
     public boolean isAccountNonExpired() {
         return true;
     }
 
+    @JsonIgnore
     @Override
     public boolean isAccountNonLocked() {
         // Le compte n'est pas verrouillé SI le statut n'est pas "Bloque"
         return this.statut != statutUtilisateur.Bloque;
     }
 
+    @JsonIgnore
     @Override
     public boolean isCredentialsNonExpired() {
         return true;
     }
 
+    @JsonIgnore
     @Override
     public boolean isEnabled() {
         // Le compte est activé SI le statut est "Actif"

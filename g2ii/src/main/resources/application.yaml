@@ -10,7 +10,7 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: it.informatique.service@gmail.com   # Remplacez par votre vraie adresse
-    password: ztcf dhkn kjee hfve # ⚠️ Lisez la note importante ci-dessous !
+    password: "ztcfdhknkjeehfve" # ⚠️ Lisez la note importante ci-dessous !
     properties:
       mail:
         smtp:
@@ -37,11 +37,11 @@ logging:
     root: INFO
     com.sagem.g2ii: DEBUG
   file:
-    name: /app/logs/g2ii.log
+    name: logs/g2ii.log
 
 # JWT Configuration
 app:
   jwt:
-    secret: mySecretKeyForJWTTokenGenerationThatMustBeAtLeast256Bits
-    expiration: 86400000  # 24 heures en millisecondes
+    secret: 4738b2089819a4c8d3e690b1e877ed9c63c5621657e6f00112cc29f077d71fc8
+    expiration: 30000  # 30 s en millisecondes
 
