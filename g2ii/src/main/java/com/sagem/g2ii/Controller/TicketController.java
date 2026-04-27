@@ -144,9 +144,12 @@ public class TicketController {
     public ResponseEntity<?> resoudreTicket(
             @PathVariable Long idTicket,
             @RequestParam Long idUtilisateur,
-            @RequestParam String noteResolution) {
+            @RequestParam String noteResolution,
+            @RequestParam Integer delaiResolution) { // ⚠️ 1. NOUVEAU PARAMÈTRE ICI
         try {
-            Ticket ticket = ticketService.resoudreTicket(idTicket, idUtilisateur, noteResolution);
+            // ⚠️ 2. ON LE PASSE AU SERVICE
+            Ticket ticket = ticketService.resoudreTicket(idTicket, idUtilisateur, noteResolution, delaiResolution);
+
             return ResponseEntity.ok(Map.of(
                     "message", "Ticket résolu",
                     "slaRespecte", ticket.getSlaRespecte(),

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "Historique_Ticket")
@@ -29,7 +30,7 @@ public class HistoriqueTicket {
     private String nouvelleValeur;
 
     @Column(nullable = false)
-    private LocalDate date = LocalDate.now();
+    private LocalDateTime date = LocalDateTime.now();
 
     @ManyToOne
     @JoinColumn(name = "id_ticket", nullable = false)

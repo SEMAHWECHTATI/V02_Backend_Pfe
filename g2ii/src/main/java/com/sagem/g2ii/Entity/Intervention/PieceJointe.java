@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "Piece_Jointe")
@@ -29,16 +30,28 @@ public class PieceJointe {
     private long taille;
 
     @Column
-    private LocalDate date = LocalDate.now();
+    private LocalDateTime date = LocalDateTime.now();
 
     @Column(length = 100)
     private String typefichier;
 
-    @ManyToOne
+    // ===== RELATIONS =====
+
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_ticket", nullable = false)
     private Ticket ticket;
 
-    @ManyToOne
-    @JoinColumn(name = "id_utilisateur")
+    // ✅ AJOUTER ID UTILISATEUR
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_utilisateur", nullable = true)
     private Utilisateur utilisateur;
+
+    // ✅ Getters et Setters custom si nécessaire
+    public Long getIdUtilisateur() {
+        return utilisateur != null ? utilisateur.getId() : null;
+    }
+
+    public String getNomUtilisateur() {
+        return utilisateur != null ? utilisateur.getPrenom() + " " + utilisateur.getNom() : "Inconnu";
+    }
 }

@@ -153,8 +153,8 @@ public class TicketService {
      * 4️⃣ Résoudre le ticket
      */
     @Transactional
-    public Ticket resoudreTicket(Long idTicket, Long idUtilisateur, String noteResolution) {
-        System.out.println("✅ Résolution du ticket ID: " + idTicket);
+    public Ticket resoudreTicket(Long idTicket, Long idUtilisateur, String noteResolution, Integer delaiResolution) {
+        System.out.println("✅ Résolution du ticket ID: " + idTicket + " | Temps: " + delaiResolution + " min");
 
         Ticket ticket = ticketRepository.findById(idTicket)
                 .orElseThrow(() -> new RuntimeException("Ticket non trouvé"));
@@ -168,21 +168,22 @@ public class TicketService {
 
         StatutTicket ancienStatut = ticket.getStatut();
         ticket.setStatut(StatutTicket.Resolu);
-        ticket.setDateResolution(LocalDate.now());
+        ticket.setDateResolution(LocalDate.now()); // ✅ ENREGISTRE LA DATE ACTUELLE
         ticket.setNoteResolution(noteResolution);
+        ticket.setDelaiResolution((double) delaiResolution); // ✅ ENREGISTRE LE TEMPS
 
-        calculerSLA(ticket);
+        // ⚠️ NE PAS APPELER calculerSLA() car elle écrase le delaiResolution
+        // calculerSLA(ticket); // À COMMENTER
 
         Ticket ticketUpdated = ticketRepository.save(ticket);
 
         historiqueService.tracer(ticket, utilisateur, "Statut",
                 ancienStatut.name(), StatutTicket.Resolu.name());
 
-        System.out.println("✅ Ticket résolu. SLA respecté: " + ticket.getSlaRespecte());
+        System.out.println("✅ Ticket résolu. Délai: " + delaiResolution + " min | Date: " + LocalDate.now());
 
         return ticketUpdated;
     }
-
     /**
      * 5️⃣ Clôturer le ticket
      */
@@ -232,7 +233,7 @@ public class TicketService {
                     ticket.getDatePriseEncharge().atStartOfDay(),
                     ticket.getDateResolution().atStartOfDay()
             );
-            ticket.setDelaiResolution((double) heures);
+//            ticket.setDelaiResolution((double) heures);
 
             if (ticket.getCategorie() != null &&
                     ticket.getCategorie().getSlas() != null &&

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -36,7 +37,7 @@ public class HistoriqueTicketService {
                 .champModifie(champModifie)
                 .ancienneValeur(ancienneValeur)
                 .nouvelleValeur(nouvelleValeur)
-                .date(LocalDate.now())
+                .date(LocalDateTime.now())
                 .build();
 
         return historiqueRepository.save(historique);

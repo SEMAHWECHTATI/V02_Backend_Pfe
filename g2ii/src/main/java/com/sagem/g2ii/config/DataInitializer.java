@@ -2,11 +2,13 @@ package com.sagem.g2ii.Config;
 
 import com.sagem.g2ii.Service.CategorieService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.init-data.categories", havingValue = "true") // 👈 J'ai ajouté les paramètres ici
 public class DataInitializer {
 
     @Autowired

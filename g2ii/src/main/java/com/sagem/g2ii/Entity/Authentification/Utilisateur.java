@@ -42,6 +42,7 @@ public class Utilisateur implements UserDetails {
     private String matricule;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String motDePasse;
 
     @Column(length = 20)
