@@ -81,15 +81,16 @@ public class Ticket {
     @JoinColumn(name = "id_groupe")
     private Groupe groupeAssigne;
 
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
+    // On autorise l'ajout (PERSIST) et la modification (MERGE), mais pas la suppression (REMOVE)
+    @OneToMany(mappedBy = "ticket", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonIgnoreProperties("ticket")
     private List<NoteTicket> notes;
 
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "ticket", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonIgnoreProperties("ticket")
     private List<PieceJointe> pieceJointes;
 
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "ticket", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonIgnoreProperties("ticket")
     private List<HistoriqueTicket> historiqueTickets;
 }

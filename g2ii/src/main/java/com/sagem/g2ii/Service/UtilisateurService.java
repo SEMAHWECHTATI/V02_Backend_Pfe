@@ -34,9 +34,27 @@ public class UtilisateurService {
         utilisateurRepo.deleteById(id);
     }
 
-    public Utilisateur updateUser(Long id, Utilisateur user) {
-        user.setId(id);
-        return utilisateurRepo.save(user);
+    public Utilisateur updateUser(Long id, Utilisateur userDetails) {
+        // 1. On récupère l'utilisateur actuel en base de données
+        return utilisateurRepo.findById(id).map(existingUser -> {
+
+            // 2. On met à jour uniquement les champs autorisés
+            existingUser.setNom(userDetails.getNom());
+            existingUser.setPrenom(userDetails.getPrenom());
+            existingUser.setEmail(userDetails.getEmail());
+            existingUser.setTelephone(userDetails.getTelephone());
+            existingUser.setMatricule(userDetails.getMatricule());
+            existingUser.setRole(userDetails.getRole());
+            existingUser.setStatut(userDetails.getStatut());
+            existingUser.setDepartement(userDetails.getDepartement());
+
+            // On NE touche PAS à existingUser.setMotDePasse(...)
+            // ainsi le mot de passe actuel est conservé en base.
+
+            // 3. On sauvegarde l'objet existant qui est toujours "complet"
+            return utilisateurRepo.save(existingUser);
+
+        }).orElseThrow(() -> new RuntimeException("Utilisateur non trouvé avec l'id : " + id));
     }
 
     public void ajouterUtilisateurAuGroupe(Long userId, Long groupeId) {

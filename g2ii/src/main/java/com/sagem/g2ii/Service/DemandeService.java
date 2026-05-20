@@ -69,6 +69,7 @@ public class DemandeService {
         return convertirEnDTO(demandeSauvegardee);
     }
 
+
     // 2. Récupérer toutes les demandes
     public List<DemandeReponseDTO> getAllDemandes() {
         List<DemandeInscription> demandes = demandeRepo.findAll();

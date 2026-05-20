@@ -8,7 +8,10 @@ public enum GroupeTechnicien {
     IT_Tracabilite_Produit("IT_Tracabilite_Produit", "IT Traçabilité Produit"),
     IT_Gestionnaire_Stock("IT_Gestionnaire_Stock", "IT Gestionnaire Stock"),
     IT_Management("IT_Management", "IT Management"),
-    Demandeur("Demandeur", "Demandeur");
+    Demandeur("Demandeur", "Demandeur"),
+    IT_Devlopper("IT_Devlopper", "IT Devlopper"),
+    IT_Devops("IT_Devops", "IT Devops"),
+    Autre("Autre", "Autre");
 
     private final String code;
     private final String label;

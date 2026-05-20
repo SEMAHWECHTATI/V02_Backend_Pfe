@@ -1,11 +1,16 @@
 package com.sagem.g2ii.config;
+
+import com.sagem.g2ii.securiter.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -14,35 +19,117 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
+
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http)
+            throws Exception {
+
         http
-                .cors(Customizer.withDefaults()) // Active l'intégration CORS
-                .csrf(csrf -> csrf.disable()) // Désactive CSRF
+
+                .cors(Customizer.withDefaults())
+
+                .csrf(csrf -> csrf.disable())
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // Laisse tout passer pour l'instant
+
+                        // SWAGGER PUBLIC
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
+
+                        // ROUTES PUBLIQUES
+                        .requestMatchers(
+                                "/authentification/**"
+                        ).permitAll()
+
+
+                        .requestMatchers(
+                                "/api/enumerations/**"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/api/groupes/**"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/api/demandes/**"
+                        ).permitAll()
+
+                        // ADMIN ONLY
+//                        .requestMatchers("/api/demandes/**")
+//                        .hasRole("Administrateur")
+                        .requestMatchers("/api/categories/**")
+                        .hasAnyRole("Administrateur", "Technicien", "Demandeur","Gestionnaire_Stock")
+                        .requestMatchers("/api/tickets/**")
+                        .hasAnyRole("Administrateur", "Technicien", "Demandeur","Gestionnaire_Stock")
+                        // Dans SecurityConfig.java
+                        .requestMatchers( "/api/users/**").hasRole("Administrateur")
+
+                        // TOUT LE RESTE SECURISE
+                        .anyRequest().authenticated()
+                )
+
+                // JWT FILTER
+                .addFilterBefore(
+                        jwtFilter,
+                        UsernamePasswordAuthenticationFilter.class
                 );
 
         return http.build();
     }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(List.of("*")); // Règle le problème de l'étoile
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // Autorise Angular à envoyer ses infos
+        CorsConfiguration configuration =
+                new CorsConfiguration();
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Applique à toutes les routes
+        configuration.setAllowedOriginPatterns(
+                List.of("*")
+        );
+
+        configuration.setAllowedMethods(
+                Arrays.asList(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "OPTIONS"
+                )
+        );
+
+        configuration.setAllowedHeaders(
+                List.of("*")
+        );
+
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
+
         return source;
     }
 }
