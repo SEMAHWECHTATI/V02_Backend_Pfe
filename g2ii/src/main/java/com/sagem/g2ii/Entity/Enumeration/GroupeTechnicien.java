@@ -11,7 +11,17 @@ public enum GroupeTechnicien {
     Demandeur("Demandeur", "Demandeur"),
     IT_Devlopper("IT_Devlopper", "IT Devlopper"),
     IT_Devops("IT_Devops", "IT Devops"),
-    Autre("Autre", "Autre");
+    Autre("Autre", "Autre"),
+    IT_Cybersecurite("IT_Cybersecurite", "IT Cybersécurité"),
+    IT_Helpdesk("IT_Helpdesk", "IT Support & Helpdesk"),
+    IT_DBA("IT_DBA", "IT Administrateur de Bases de Données"),
+    IT_Cloud("IT_Cloud", "IT Infrastructure & Cloud"),
+    IT_Business_Analyst("IT_Business_Analyst", "IT Business Analyst"),
+    IT_QA_Testing("IT_QA_Testing", "IT Assurance Qualité & Tests"),
+    IT_ERP_Systems("IT_ERP_Systems", "IT Intégration ERP & SAP"),
+    IT_Telecom("IT_Telecom", "IT Téléphonie & Télécom"),
+    IT_Data_BI("IT_Data_BI", "IT Data & Business Intelligence"),
+    IT_Formation("IT_Formation", "IT Formation & Support Utilisateurs");
 
     private final String code;
     private final String label;

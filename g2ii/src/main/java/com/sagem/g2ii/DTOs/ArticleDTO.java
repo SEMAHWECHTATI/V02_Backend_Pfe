@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 @Builder
 public class ArticleDTO {
     private Long id;
+    private String categorie;
     private String reference;
     private String designation;
     private String description;

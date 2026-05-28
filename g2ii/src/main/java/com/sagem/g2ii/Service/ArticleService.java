@@ -4,8 +4,10 @@ import com.sagem.g2ii.DTOs.ArticleDTO;
 import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Enumeration.TypeArticle;
 import com.sagem.g2ii.Entity.Inventaire.Article;
+import com.sagem.g2ii.Entity.Inventaire.Localisation;
 import com.sagem.g2ii.Repository.ArticleRepository;
 import com.sagem.g2ii.Repository.LocalisationRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,10 +33,20 @@ public class ArticleService {
      * ✅ Créer un nouvel article
      */
     public ArticleDTO creerArticle(ArticleDTO dto) {
-        log.info("📝 Création article: {}", dto.getDesignation());
+        log.info("📝 Tentative de création de l'article: {} (Catégorie: {})", dto.getDesignation(), dto.getCategorie());
 
+        // 1. Sécurité : Vérifier que la catégorie et la référence ne sont pas nulles avant d'envoyer à la BD
+        if (dto.getCategorie() == null || dto.getCategorie().isBlank()) {
+            throw new IllegalArgumentException("La catégorie de l'article est obligatoire.");
+        }
+        if (dto.getReference() == null || dto.getReference().isBlank()) {
+            throw new IllegalArgumentException("La référence de l'article est obligatoire.");
+        }
+
+        // 2. Construction de l'entité
         Article article = Article.builder()
-                .reference(dto.getReference())
+                .categorie(dto.getCategorie().toUpperCase().trim()) // Normalisation (ex: "ecrans" -> "ECRANS")
+                .reference(dto.getReference().trim())
                 .designation(dto.getDesignation())
                 .description(dto.getDescription())
                 .codeBarres(dto.getCodeBarres())
@@ -49,15 +61,24 @@ public class ArticleService {
                 .seuilCritique(dto.getSeuilCritique())
                 .build();
 
+        // 3. Gestion propre de la localisation
         if (dto.getLocalisationId() != null) {
-            article.setLocalisation(localisationRepository.findById(dto.getLocalisationId()).orElse(null));
+            Localisation loc = localisationRepository.findById(dto.getLocalisationId())
+                    .orElseThrow(() -> new EntityNotFoundException("Localisation introuvable avec l'ID: " + dto.getLocalisationId()));
+            article.setLocalisation(loc);
         }
 
+        // 4. Sauvegarde en Base de Données
         Article saved = articleRepository.save(article);
-        log.info("✅ Article créé: {}", saved.getId());
+        log.info("✅ Article enregistré avec succès en BD. ID généré: {}", saved.getId());
 
-        // Vérifier et créer des alertes si nécessaire
-        verifierAlertes(saved);
+        // 5. Vérification des alertes de stock (Seuils minimum / critique)
+        try {
+            verifierAlertes(saved);
+        } catch (Exception e) {
+            // On loggue l'erreur d'alerte sans bloquer la création de l'article principal
+            log.error("⚠️ Impossible de vérifier les alertes pour l'article ID {}: {}", saved.getId(), e.getMessage());
+        }
 
         return convertToDTO(saved);
     }
@@ -71,6 +92,8 @@ public class ArticleService {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Article non trouvé"));
 
+
+        article.setCategorie(dto.getCategorie());
         article.setDesignation(dto.getDesignation());
         article.setDescription(dto.getDescription());
         article.setTypeArticle(dto.getTypeArticle());
@@ -171,6 +194,7 @@ public class ArticleService {
     private ArticleDTO convertToDTO(Article article) {
         return ArticleDTO.builder()
                 .id(article.getId())
+                .categorie(article.getCategorie())
                 .reference(article.getReference())
                 .designation(article.getDesignation())
                 .description(article.getDescription())

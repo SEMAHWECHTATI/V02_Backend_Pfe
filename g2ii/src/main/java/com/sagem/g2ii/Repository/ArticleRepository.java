@@ -14,7 +14,6 @@ import java.util.Optional;
 
 @Repository
 public interface ArticleRepository extends JpaRepository<Article, Long> {
-
     Optional<Article> findByReference(String reference);
     Optional<Article> findByCodeBarres(String codeBarres);
     List<Article> findByTypeArticle(TypeArticle type);
@@ -29,7 +28,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT a FROM Article a WHERE a.quantiteEnStock <= a.seuilCritique")
     List<Article> findArticlesAvecStockCritique();
 
-    // ✅ CORRIGER : Retourner BigDecimal au lieu de Float
+    // ✅ Valeur totale du stock
     @Query("SELECT COALESCE(SUM(a.quantiteEnStock * a.prixUnitaire), 0) FROM Article a WHERE a.statut != 'ARCHIVÉ'")
     BigDecimal getTotalInventoryValue();
 
@@ -45,11 +44,13 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT SUM(a.quantiteEnStock) FROM Article a")
     Integer getTotalQuantityInStock();
 
-    // ✅ Nombre total d'articles
+    // ✅ Nombre total d'articles uniques
     @Query("SELECT COUNT(a) FROM Article a")
     Long getTotalArticles();
 
-    // ✅ Recherche
-    @Query("SELECT a FROM Article a WHERE LOWER(a.designation) LIKE %:keyword% OR LOWER(a.reference) LIKE %:keyword%")
+    // ✅ Recherche multicritère
+    @Query("SELECT a FROM Article a WHERE LOWER(a.designation) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(a.reference) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Article> searchByKeyword(@Param("keyword") String keyword);
+
+    // ❌ Ligne "List<Article> findById(long id);" supprimée pour éviter d'écraser la méthode par défaut native JpaRepository qui renvoie un Optional<Article>.
 }

@@ -1,7 +1,6 @@
 package com.sagem.g2ii.config;
 
 import com.sagem.g2ii.securiter.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -19,10 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-@RequiredArgsConstructor
 public class SecurityConfig {
-
-    private final JwtAuthenticationFilter jwtFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -31,7 +27,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter)
             throws Exception {
 
         http
@@ -49,6 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // SWAGGER PUBLIC
+                                .requestMatchers("/api/inventory/articles/**").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -59,8 +56,17 @@ public class SecurityConfig {
 
                         // ROUTES PUBLIQUES
                         .requestMatchers(
+
                                 "/authentification/**"
                         ).permitAll()
+
+                                .requestMatchers( "/api/consommations-pieces/**").permitAll()
+
+                                .requestMatchers("/api/demandes-materiel/**").permitAll()
+
+                                .requestMatchers("/api/inventory/**").permitAll()
+
+
 
 
                         .requestMatchers(
@@ -73,6 +79,7 @@ public class SecurityConfig {
                                 "/api/demandes/**"
                         ).permitAll()
 
+
                         // ADMIN ONLY
 //                        .requestMatchers("/api/demandes/**")
 //                        .hasRole("Administrateur")
@@ -82,6 +89,11 @@ public class SecurityConfig {
                         .hasAnyRole("Administrateur", "Technicien", "Demandeur","Gestionnaire_Stock")
                         // Dans SecurityConfig.java
                         .requestMatchers( "/api/users/**").hasRole("Administrateur")
+
+
+
+
+
 
                         // TOUT LE RESTE SECURISE
                         .anyRequest().authenticated()

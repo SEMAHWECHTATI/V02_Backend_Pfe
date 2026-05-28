@@ -8,7 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/groupes")
@@ -44,7 +46,10 @@ public class GroupeController {
 
     // 4. Supprimer un groupe
     @DeleteMapping("/supprimer/{id}")
-    public void supprimerGroupe(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> supprimerGroupe(@PathVariable Long id) {
         groupeservice.deleteGroupe(id);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Groupe supprimé avec succès");
+        return ResponseEntity.ok(response);
     }
 }

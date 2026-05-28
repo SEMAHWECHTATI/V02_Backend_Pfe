@@ -10,6 +10,5 @@ import java.util.Optional;
 @Repository
 public interface LocalisationRepository extends JpaRepository<Localisation, Long> {
     Optional<Localisation> findByBatimentAndEtageAndBureau(String batiment, String etage, String bureau);
-    List<Localisation> findByDepartement(String departement);
     List<Localisation> findByBatiment(String batiment);
 }

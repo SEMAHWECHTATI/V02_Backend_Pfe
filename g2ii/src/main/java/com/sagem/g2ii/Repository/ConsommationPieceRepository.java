@@ -11,12 +11,9 @@ import java.util.List;
 
 @Repository
 public interface ConsommationPieceRepository extends JpaRepository<ConsommationPiece, Long> {
-    List<ConsommationPiece> findByArticleId(Long articleId);
+    // Récupérer toutes les pièces consommées pour un ticket spécifique
     List<ConsommationPiece> findByReferenceTicket(String referenceTicket);
 
-    @Query("SELECT c FROM ConsommationPiece c WHERE c.dateConsommation BETWEEN :debut AND :fin")
-    List<ConsommationPiece> findConsommationsBetweenDates(
-            @Param("debut") LocalDateTime debut,
-            @Param("fin") LocalDateTime fin
-    );
+    // Récupérer l'historique des consommations pour un article donné
+    List<ConsommationPiece> findByArticleId(Long articleId);
 }

@@ -33,7 +33,17 @@ public class GroupeService {
     }
 
     public void deleteGroupe(Long id) {
-        grouperepo.deleteById(id);
+
+        System.out.println("🗑️ Tentative suppression ID = " + id);
+
+        Groupe groupe = grouperepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Groupe introuvable"));
+
+        System.out.println("📌 Groupe trouvé = " + groupe.getNomGroupes());
+
+        grouperepo.delete(groupe);
+
+        System.out.println("✅ Groupe supprimé");
     }
 
 }

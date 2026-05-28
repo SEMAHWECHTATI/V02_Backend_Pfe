@@ -25,10 +25,7 @@ public class DemandeMaterielDTO {
     private TypeDemande type;
     private StatutDemande statut;
     private String justification;
-    private Long utilisateurDemandeurId;
-    private String utilisateurDemandeurName;
-    private Long utilisateurGestionnaireId;
-    private String utilisateurGestionnaireName;
+    private DemandeReponseDTO utilisateurDemandeur;
     private LocalDateTime dateValidationGestionnaire;
     private Long utilisateurAdminId;
     private String utilisateurAdminName;

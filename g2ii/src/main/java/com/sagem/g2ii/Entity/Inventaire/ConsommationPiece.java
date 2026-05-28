@@ -1,8 +1,9 @@
 package com.sagem.g2ii.Entity.Inventaire;
 
+import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import jakarta.persistence.*;
 import lombok.*;
-import com.sagem.g2ii.Entity.Authentification.Utilisateur;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,22 +24,25 @@ public class ConsommationPiece {
     @Column(columnDefinition = "TEXT")
     private String commentaire;
 
+    // Correspond au champ 'referenceTicket' envoyé par Angular
+    @Column(name = "reference_ticket", nullable = false, length = 50)
+    private String referenceTicket;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime dateConsommation;
 
-    @ManyToOne
+    // Jointure ManyToOne vers l'Article (Inverse de la relation dans Article.java)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "article_id", nullable = false)
     private Article article;
 
-    @ManyToOne
-    @JoinColumn(name = "utilisateur_id")
+    // Jointure ManyToOne vers l'Utilisateur qui a validé la résolution
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id", nullable = false)
     private Utilisateur responsable;
-
-    @Column(length = 100)
-    private String referenceTicket;
 
     @PrePersist
     public void prePersist() {
-        dateConsommation = LocalDateTime.now();
+        this.dateConsommation = LocalDateTime.now();
     }
 }

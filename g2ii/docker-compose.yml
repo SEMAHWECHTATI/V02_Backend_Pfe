@@ -33,7 +33,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://ma-base-db:5432/g2ii_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: admin
-      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
     restart: on-failure
 

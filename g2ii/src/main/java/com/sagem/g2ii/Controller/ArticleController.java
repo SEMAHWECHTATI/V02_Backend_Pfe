@@ -4,6 +4,7 @@ import com.sagem.g2ii.DTOs.ArticleDTO;
 import com.sagem.g2ii.Service.ArticleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 @CrossOrigin("*")
 public class ArticleController {
 
+    @Autowired
     private final ArticleService articleService;
 
     /**
