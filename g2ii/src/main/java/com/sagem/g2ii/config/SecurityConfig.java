@@ -59,6 +59,14 @@ public class SecurityConfig {
 
                                 "/authentification/**"
                         ).permitAll()
+                                .requestMatchers(
+
+                                        "/api/localisations/**"
+                                ).permitAll()
+                                .requestMatchers(
+
+                                        "/api/fournisseurs/**"
+                                ).permitAll()
 
                                 .requestMatchers( "/api/consommations-pieces/**").permitAll()
 

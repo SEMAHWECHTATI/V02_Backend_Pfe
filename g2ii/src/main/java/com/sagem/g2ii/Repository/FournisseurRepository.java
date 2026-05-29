@@ -9,4 +9,4 @@ import java.util.Optional;
 public interface FournisseurRepository extends JpaRepository<Fournisseur, Long> {
 
     Optional<Fournisseur> findByNom(String nom);
-}
+    boolean existsByNomIgnoreCase(String nom);}
