@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Entity.Inventaire;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,14 +32,18 @@ public class ConsommationPiece {
     @Column(nullable = false, updatable = false)
     private LocalDateTime dateConsommation;
 
-    // Jointure ManyToOne vers l'Article (Inverse de la relation dans Article.java)
+    // Jointure ManyToOne vers l'Article
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "article_id", nullable = false)
+    // ⬇️ AJOUTE "hibernateLazyInitializer" et "handler" dans la liste :
+    @JsonIgnoreProperties({"consommations", "stocks", "tickets", "hibernateLazyInitializer", "handler"})
     private Article article;
 
-    // Jointure ManyToOne vers l'Utilisateur qui a validé la résolution
+    // Jointure ManyToOne vers l'Utilisateur
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "responsable_id", nullable = false)
+    // ⬇️ AJOUTE "hibernateLazyInitializer" et "handler" ici aussi :
+    @JsonIgnoreProperties({"password", "roles", "tickets", "consommations", "hibernateLazyInitializer", "handler"})
     private Utilisateur responsable;
 
     @PrePersist

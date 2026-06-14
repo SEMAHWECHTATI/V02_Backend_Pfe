@@ -24,6 +24,13 @@ public class StockService {
     private final ArticleRepository articleRepository;
     private final AlerteService alerteService;
 
+    @Transactional(readOnly = true)
+    public List<StockDTO> recupererToutLeStock() {
+        return stockRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
     /**
      * ✅ Créer un stock pour un article
      */
@@ -47,6 +54,24 @@ public class StockService {
 
         return convertToDTO(saved);
     }
+
+    @Transactional
+    public void mettreAJourLocalisation(Long stockId, String nouvelleLocalisation) {
+        log.info("Mise à jour de la localisation du stock ID {}: -> {}", stockId, nouvelleLocalisation);
+
+        // 1. Récupérer le stock
+        Stock stock = stockRepository.findById(stockId)
+                .orElseThrow(() -> new RuntimeException("Impossible de mettre à jour la localisation : Stock non trouvé avec l'ID " + stockId));
+
+        // 2. Mettre à jour le champ de localisation de l'entité Stock
+        // 💡 Adaptez le setter selon le nom exact du champ dans votre entité Stock (ex: setEmplacement, setZone, etc.)
+
+        // 3. Sauvegarder les modifications
+        stockRepository.save(stock);
+        log.info("✅ Localisation du stock ID {} mise à jour avec succès.", stockId);
+    }
+
+
 
     /**
      * ✅ Mettre à jour la quantité

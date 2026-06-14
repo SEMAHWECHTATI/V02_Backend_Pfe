@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,7 +25,7 @@ public class AlerteService {
     private final AlerteRepository alerteRepository;
 
     /**
-     * ✅ Créer une alerte
+     * ✅ Créer une alerte sécurisée
      */
     public AlerteDTO creerAlerte(Article article, String message) {
         log.info("⚠️ Création alerte: {}", message);
@@ -50,52 +51,37 @@ public class AlerteService {
                 .statut(StatutAlerte.NOUVELLE)
                 .build();
 
-        alerte.getArticles().add(article);
+        // 💡 Utilisation de votre méthode Helper (garantit l'absence de NullPointerException)
+        alerte.addArticle(article);
 
         Alerte saved = alerteRepository.save(alerte);
-        log.info("✅ Alerte créée: {}", saved.getId());
+        log.info("✅ Alerte créée avec succès, ID: {}", saved.getId());
 
         return convertToDTO(saved);
     }
 
-    /**
-     * ✅ Marquer alerte comme lue
-     */
     public void marquerCommeLue(Long alerteId) {
         Alerte alerte = alerteRepository.findById(alerteId)
                 .orElseThrow(() -> new RuntimeException("Alerte non trouvée"));
-
         alerte.setStatut(StatutAlerte.LUE);
         alerteRepository.save(alerte);
-
         log.info("👁️ Alerte marquée comme lue: {}", alerteId);
     }
 
-    /**
-     * ✅ Marquer alerte comme traitée
-     */
     public void marquerCommeTraitee(Long alerteId) {
         Alerte alerte = alerteRepository.findById(alerteId)
                 .orElseThrow(() -> new RuntimeException("Alerte non trouvée"));
-
         alerte.setStatut(StatutAlerte.TRAITEE);
         alerteRepository.save(alerte);
-
         log.info("✅ Alerte marquée comme traitée: {}", alerteId);
     }
 
-    /**
-     * ✅ Obtenir alertes non traitées
-     */
     public List<AlerteDTO> getAlerteNonTraitees() {
         return alerteRepository.findByStatut(StatutAlerte.NOUVELLE).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * ✅ Obtenir alertes critiques
-     */
     public List<AlerteDTO> getAlerteCritique() {
         return alerteRepository.findByStatutAndSeveriteOrderByDateCreationDesc(
                         StatutAlerte.NOUVELLE, Severite.CRITIQUE
@@ -105,9 +91,12 @@ public class AlerteService {
     }
 
     /**
-     * 🔄 Convertir Entity en DTO
+     * 🔄 Convertir Entity en DTO (Corrigé et Sécurisé 🛠️)
      */
     private AlerteDTO convertToDTO(Alerte alerte) {
+        // 💡 Utilisation systématique de la liste isolée pour éviter les mauvaises surprises
+        List<Article> articlesAssocies = alerte.getArticles() != null ? alerte.getArticles() : new ArrayList<>();
+
         return AlerteDTO.builder()
                 .id(alerte.getId())
                 .type(alerte.getType())
@@ -116,14 +105,12 @@ public class AlerteService {
                 .statut(alerte.getStatut())
                 .dateCreation(alerte.getDateCreation())
                 .dateAcquittement(alerte.getDateAcquittement())
-                .articleIds(alerte.getArticles().stream().map(Article::getId).collect(Collectors.toList()))
-                .articleDesignations(alerte.getArticles().stream().map(Article::getDesignation).collect(Collectors.toList()))
+                // 💡 Remplacement de alerte.getArticles() par articlesAssocies
+                .articleIds(articlesAssocies.stream().map(Article::getId).collect(Collectors.toList()))
+                .articleDesignations(articlesAssocies.stream().map(Article::getDesignation).collect(Collectors.toList()))
                 .build();
     }
 
-    /**
-     * 🗑️ Supprimer une alerte
-     */
     public void supprimerAlerte(Long alerteId) {
         log.info("🗑️ Suppression alerte: {}", alerteId);
         alerteRepository.deleteById(alerteId);

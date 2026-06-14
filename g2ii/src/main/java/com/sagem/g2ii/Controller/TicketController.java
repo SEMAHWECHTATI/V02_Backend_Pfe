@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Controller;
 
+import com.sagem.g2ii.DTOs.SlaStatisticsDTO;
 import com.sagem.g2ii.DTOs.TicketCreationDTO;
 import com.sagem.g2ii.Entity.Enumeration.StatutTicket;
 import com.sagem.g2ii.Entity.Intervention.Ticket;
@@ -193,5 +194,27 @@ public class TicketController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /**
+     * 📊 GET /api/tickets/sla/statistics
+     * Récupérer les indicateurs clés de performance (KPI) des SLA pour le Dashboard
+     */
+    @GetMapping("/sla/statistics")
+    public ResponseEntity<SlaStatisticsDTO> getSlaStatistics() {
+        System.out.println("📊 Requête API : Extraction des statistiques SLA");
+        SlaStatisticsDTO stats = ticketService.obtenirStatistiquesSLA();
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * 🚨 GET /api/tickets/sla/depasses
+     * Lister uniquement les tickets qui ont enfreint au moins une règle de SLA (Utile pour les rapports d'anomalies)
+     */
+    @GetMapping("/sla/depasses")
+    public ResponseEntity<List<Ticket>> getTicketsSlaDepasses() {
+        System.out.println("🚨 Requête API : Liste des tickets hors délais SLA");
+        List<Ticket> ticketsEnRetard = ticketService.listerSLADepasses();
+        return ResponseEntity.ok(ticketsEnRetard);
     }
 }

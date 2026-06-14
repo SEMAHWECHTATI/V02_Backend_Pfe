@@ -1,6 +1,7 @@
 package com.sagem.g2ii.Repository;
 
 
+import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Inventaire.Article;
 import com.sagem.g2ii.Entity.Inventaire.Equipement;
 import org.springframework.data.domain.Page;
@@ -15,19 +16,31 @@ import java.util.Optional;
 
 @Repository
 public interface EquipementRepository extends JpaRepository<Equipement, Long> {
+    long countByStatut(StatutArticle statut);
+
+
+
 
     Optional<Equipement> findByNumeroSerie(String numeroSerie);
 
-    Page<Equipement> findByStatut(Equipement.StatutEquipement statut, Pageable pageable);
+    Page<Equipement> findByStatut(StatutArticle statut, Pageable pageable);
 
     Page<Equipement> findByArticle(Article article, Pageable pageable);
 
     Page<Equipement> findByDesignationContainingIgnoreCase(String designation, Pageable pageable);
 
-    List<Equipement> findByStatut(Equipement.StatutEquipement statut);
+    List<Equipement> findByStatut(StatutArticle statut);
 
     Page<Equipement> findAll(Pageable pageable);
 
     @Query("SELECT COUNT(e) FROM Equipement e WHERE e.statut = 'ACTIF'")
     long countActiveEquipments();
+
+    // Rechercher par code-barres (unique)
+    Optional<Equipement> findByCodeBarres(String codeBarres);
+
+
+
+    // Filtrer les équipements par localisation physique
+    List<Equipement> findByLocalisationId(Long localisationId);
 }

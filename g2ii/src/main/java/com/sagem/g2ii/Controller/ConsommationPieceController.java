@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Controller;
 import com.sagem.g2ii.Entity.Inventaire.ConsommationPiece;
+import com.sagem.g2ii.Service.ConsommationPieceServiceImpl;
 import com.sagem.g2ii.Service.IConsommationPieceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,7 +14,7 @@ import java.util.List;
 @CrossOrigin(origins = "*") // À ajuster selon l'URL de votre front Angular
 public class ConsommationPieceController {
 
-    private final IConsommationPieceService consommationPieceService;
+    private final ConsommationPieceServiceImpl consommationPieceService;
 
     /**
      * POST : Enregistrer une nouvelle consommation de pièce (Ex: lors de la résolution)

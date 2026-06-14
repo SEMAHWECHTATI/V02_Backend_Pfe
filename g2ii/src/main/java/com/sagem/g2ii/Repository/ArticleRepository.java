@@ -52,5 +52,9 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT a FROM Article a WHERE LOWER(a.designation) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(a.reference) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Article> searchByKeyword(@Param("keyword") String keyword);
 
-    // ❌ Ligne "List<Article> findById(long id);" supprimée pour éviter d'écraser la méthode par défaut native JpaRepository qui renvoie un Optional<Article>.
+
+
+    @Query("SELECT SUM(a.prixUnitaire * a.quantiteEnStock) FROM Article a")
+    BigDecimal calculerValeurTotaleInventaire();
+
 }

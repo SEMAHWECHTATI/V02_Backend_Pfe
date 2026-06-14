@@ -11,8 +11,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,7 +26,11 @@ public class ArticleDTO {
     private StatutArticle statut;
     private Integer quantiteEnStock;
     private BigDecimal prixUnitaire;
-    private String fournisseur;
+
+    // Fournisseur relationnel aplati
+    private Long fournisseurId;
+    private String fournisseurNom;
+
     private LocalDate dateAchat;
     private LocalDate dateGarantie;
     private Integer seuilMinimum;

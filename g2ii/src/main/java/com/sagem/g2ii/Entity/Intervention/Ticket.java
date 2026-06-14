@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -41,16 +42,24 @@ public class Ticket {
     private StatutTicket statut = StatutTicket.Nouveau;
 
     @Column(nullable = false)
-    private LocalDate date = LocalDate.now();
+    private LocalDateTime date = LocalDateTime.now();
 
     @Column
-    private LocalDate datePriseEncharge;
+    private LocalDateTime datePriseEncharge;
 
     @Column
-    private LocalDate dateResolution;
+    private LocalDateTime dateResolution;
 
     @Column
-    private LocalDate dateCloture;
+    private LocalDateTime dateCloture;
+
+    // Indicateurs de résultats SLA
+    @Column
+    private Boolean slaPriseEnChargeRespecte;
+
+    @Column
+    private Boolean slaResolutionRespecte;
+
 
     @Column
     private double delaiResolution;
@@ -93,4 +102,11 @@ public class Ticket {
     @OneToMany(mappedBy = "ticket", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonIgnoreProperties("ticket")
     private List<HistoriqueTicket> historiqueTickets;
+
+    // ===== RELATIONS =====
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_sla")
+    @JsonIgnoreProperties({"categorie", "tickets"})
+    private SLA slaAssigne; // 👈 Champ indispensable pour faire le lien avec l'accord de niveau de service
 }

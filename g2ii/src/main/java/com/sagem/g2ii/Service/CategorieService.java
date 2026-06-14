@@ -16,6 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * ✅ Service complet pour la gestion des Catégories et leurs SLA associés
+ */
 @Service
 public class CategorieService {
 
@@ -26,13 +29,14 @@ public class CategorieService {
     private IntGroupe groupeRepository;
 
     /**
-     * 🔧 Initialiser les catégories par défaut
+     * 🔧 Initialiser les catégories par défaut avec leurs SLA
+     * À appeler une seule fois au démarrage de l'application
      */
     @Transactional
     public void initialiserCategories() {
-        System.out.println("\n🔧 Initialisation des catégories par défaut\n");
+        System.out.println("\n🔧 [INIT CATÉGORIES] Initialisation des catégories par défaut\n");
 
-        // ✅ ÉTAPE 1 : Récupérer les groupes existants
+        // ✅ ÉTAPE 1 : Récupérer ou créer les groupes existants
         Groupe groupeReseaux = getOrCreateGroupe(GroupeTechnicien.IT_Reseaux_Informatique);
         Groupe groupeMaintenance = getOrCreateGroupe(GroupeTechnicien.IT_Maintenance_Informatique);
         Groupe groupeStock = getOrCreateGroupe(GroupeTechnicien.IT_Gestionnaire_Stock);
@@ -45,7 +49,7 @@ public class CategorieService {
                 "Problèmes de connectivité, perte d'accès internet, routeur, switch",
                 TypeTicket.INTERVENTION_RESEAUX,
                 groupeReseaux,
-                2
+                2  // Délai base en heures
         );
 
         creerCategorieAvecSLA(
@@ -96,11 +100,18 @@ public class CategorieService {
                 240
         );
 
-        System.out.println("\n✅ Catégories initialisées\n");
+        System.out.println("\n✅ [INIT CATÉGORIES] Catégories initialisées avec succès\n");
     }
 
     /**
-     * ✅ Créer une catégorie avec ses SLA
+     * ✅ Créer une catégorie avec ses 4 SLA (Basse, Moyenne, Haute, Critique)
+     *
+     * Pour chaque priorité, les délais sont calculés proportionnellement au délai de base
+     * @param nomCategorie Nom de la catégorie
+     * @param description Description détaillée
+     * @param type Type de ticket associé
+     * @param groupeResponsable Groupe responsable de cette catégorie
+     * @param delaiBaseHeures Délai de base en heures (pour la priorité Moyenne)
      */
     @Transactional
     private void creerCategorieAvecSLA(
@@ -110,16 +121,17 @@ public class CategorieService {
             Groupe groupeResponsable,
             int delaiBaseHeures) {
 
-        System.out.println("📋 " + nomCategorie);
+        System.out.println("📋 Création: " + nomCategorie);
 
-        // Vérifier si la catégorie existe déjà
+        // ✅ VALIDATION: Vérifier si la catégorie existe déjà
         Optional<Categorie> existante = categorieRepository.findByType(type);
 
         if (existante.isPresent()) {
-            System.out.println("   ✓ Déjà existante");
+            System.out.println("   ℹ️ Catégorie déjà existante - ignorée");
             return;
         }
 
+        // ✅ CRÉER L'OBJET CATÉGORIE
         Categorie categorie = new Categorie();
         categorie.setNomCategorie(nomCategorie);
         categorie.setDescriptionCategorie(description);
@@ -127,54 +139,61 @@ public class CategorieService {
         categorie.setGroupeResponsable(groupeResponsable);
         categorie.setActif(true);
 
-        // Créer les SLA
+        // ✅ CRÉER LES 4 SLA (Basse, Moyenne, Haute, Critique)
         List<SLA> slas = new ArrayList<>();
 
+        // 📌 SLA Basse Priorité: Délai x2
         slas.add(SLA.builder()
-                .nomSLA("SLA Basse")
-                .delaiResolutionHeure(delaiBaseHeures * 2)
-                .delaiPriseEnchargeHeur(24)
+                .nomSLA("SLA Basse Priorité")
+                .delaiResolutionHeure(delaiBaseHeures * 2)  // 2x le délai de base
+                .delaiPriseEnChargeHeure(24)                 // 24h pour prise en charge
                 .priorite(Priorite.Basse)
                 .categorie(categorie)
                 .build());
 
+        // 📌 SLA Moyenne Priorité: Délai de base
         slas.add(SLA.builder()
-                .nomSLA("SLA Moyenne")
-                .delaiResolutionHeure(delaiBaseHeures)
-                .delaiPriseEnchargeHeur(8)
+                .nomSLA("SLA Moyenne Priorité")
+                .delaiResolutionHeure(delaiBaseHeures)      // Délai de base
+                .delaiPriseEnChargeHeure(8)                  // 8h pour prise en charge
                 .priorite(Priorite.Moyenne)
                 .categorie(categorie)
                 .build());
 
+        // 📌 SLA Haute Priorité: Délai / 2
         slas.add(SLA.builder()
-                .nomSLA("SLA Haute")
-                .delaiResolutionHeure(Math.max(delaiBaseHeures / 2, 1))
-                .delaiPriseEnchargeHeur(4)
+                .nomSLA("SLA Haute Priorité")
+                .delaiResolutionHeure(Math.max(delaiBaseHeures / 2, 1))  // Moitié du délai (min 1h)
+                .delaiPriseEnChargeHeure(4)                  // 4h pour prise en charge
                 .priorite(Priorite.Haute)
                 .categorie(categorie)
                 .build());
 
+        // 📌 SLA Critique: Délai ultra court
         slas.add(SLA.builder()
                 .nomSLA("SLA Critique")
-                .delaiResolutionHeure(1)
-                .delaiPriseEnchargeHeur(1)
+                .delaiResolutionHeure(1)                     // 1h max
+                .delaiPriseEnChargeHeure(1)                  // 1h max pour prise en charge
                 .priorite(Priorite.Critique)
                 .categorie(categorie)
                 .build());
 
+        // ✅ ASSIGNER LES SLA À LA CATÉGORIE
         categorie.setSlas(slas);
-        categorieRepository.save(categorie);
 
-        System.out.println("   ✅ Créée (Groupe: " + groupeResponsable.getNomGroupes() + ")");
+        // ✅ SAUVEGARDER EN BASE
+        Categorie categorieSauvegardee = categorieRepository.save(categorie);
+
+        System.out.println("   ✅ Catégorie créée (Groupe: " + groupeResponsable.getNomGroupes() + ")");
+        System.out.println("      └─ 4 SLA créés (Basse, Moyenne, Haute, Critique)");
     }
 
     /**
-     * ✅ Récupérer ou créer un groupe
+     * ✅ Récupérer ou créer un groupe s'il n'existe pas
      */
     @Transactional
     private Groupe getOrCreateGroupe(GroupeTechnicien groupeEnum) {
-        String nomGroupe = groupeEnum.name();
-
+        // ✅ Chercher le groupe par nom
         Optional<Groupe> existant = groupeRepository.findAll().stream()
                 .filter(g -> g.getNomGroupes().equals(groupeEnum))
                 .findFirst();
@@ -183,66 +202,142 @@ public class CategorieService {
             return existant.get();
         }
 
+        // ✅ Créer le groupe s'il n'existe pas
+        System.out.println("   👥 Création du groupe: " + groupeEnum.name());
+
         Groupe groupe = new Groupe();
         groupe.setNomGroupes(groupeEnum);
-        groupe.setDescription("Groupe: " + groupeEnum.name());
+        groupe.setDescription("Groupe technique: " + groupeEnum.name());
         groupe.setActif(true);
 
         return groupeRepository.save(groupe);
     }
 
+    // ============================================================================
+    // MÉTHODES PUBLIQUES
+    // ============================================================================
+
     /**
-     * 📋 Lister toutes les catégories
+     * 📋 Lister toutes les catégories actives
      */
     public List<Categorie> listerCategories() {
-        return categorieRepository.findByActifTrue();
+        System.out.println("📋 [LISTER CATÉGORIES] Récupération de toutes les catégories actives");
+        List<Categorie> categories = categorieRepository.findByActifTrue();
+        System.out.println("   Total: " + categories.size() + " catégorie(s)");
+        return categories;
     }
 
     /**
      * 🔍 Récupérer une catégorie par ID
      */
     public Categorie getCategorie(Long id) {
+        System.out.println("🔎 [RÉCUPÉRER CATÉGORIE] ID: " + id);
         return categorieRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée"));
+                .orElseThrow(() -> {
+                    System.err.println("   ❌ Catégorie non trouvée");
+                    return new RuntimeException("Catégorie non trouvée avec l'ID: " + id);
+                });
     }
 
     /**
      * 🔍 Récupérer une catégorie par TypeTicket
      */
     public Categorie getCategorieParType(TypeTicket type) {
+        System.out.println("🔎 [RÉCUPÉRER CATÉGORIE] Type: " + type);
         return categorieRepository.findByType(type)
-                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée pour type: " + type));
+                .orElseThrow(() -> {
+                    System.err.println("   ❌ Aucune catégorie trouvée pour ce type");
+                    return new RuntimeException("Catégorie non trouvée pour type: " + type);
+                });
     }
 
     /**
-     * 📍 Récupérer le groupe responsable
+     * 📍 Récupérer le groupe responsable d'une catégorie
      */
     public Groupe getGroupeResponsable(Long idCategorie) {
+        System.out.println("👥 [GROUPE RESPONSABLE] Catégorie ID: " + idCategorie);
         Categorie categorie = getCategorie(idCategorie);
         return categorie.getGroupeResponsable();
     }
 
-    // ==========================================
-    // 👇 NOUVELLES MÉTHODES AJOUTÉES ICI 👇
-    // ==========================================
+    /**
+     * 🔗 Récupérer les SLA d'une catégorie
+     */
+    public List<SLA> getSLAsCategorie(Long idCategorie) {
+        System.out.println("📊 [SLA CATÉGORIE] Catégorie ID: " + idCategorie);
+        Categorie categorie = getCategorie(idCategorie);
+        List<SLA> slas = categorie.getSlas();
+        System.out.println("   Total SLA: " + (slas != null ? slas.size() : 0));
+        return slas;
+    }
+
+    // ============================================================================
+    // OPÉRATIONS CRUD
+    // ============================================================================
 
     /**
      * ➕ Créer ou mettre à jour une catégorie
-     * (Sauvegarde l'objet dans la base de données)
      */
     @Transactional
     public Categorie creerCategorie(Categorie categorie) {
-        return categorieRepository.save(categorie);
+        System.out.println("➕ [CRÉER CATÉGORIE] " + categorie.getNomCategorie());
+        Categorie saved = categorieRepository.save(categorie);
+        System.out.println("   ✅ Sauvegardée (ID: " + saved.getIdCategorie() + ")");
+        return saved;
     }
 
     /**
-     * 📦 Archiver une catégorie (Soft Delete)
-     * (Passe l'état actif à false)
+     * ✏️ Mettre à jour une catégorie
+     */
+    @Transactional
+    public Categorie mettreAJourCategorie(Long id, Categorie categorieUpdated) {
+        System.out.println("✏️ [METTRE À JOUR CATÉGORIE] ID: " + id);
+        Categorie categorie = getCategorie(id);
+
+        if (categorieUpdated.getNomCategorie() != null) {
+            categorie.setNomCategorie(categorieUpdated.getNomCategorie());
+        }
+        if (categorieUpdated.getDescriptionCategorie() != null) {
+            categorie.setDescriptionCategorie(categorieUpdated.getDescriptionCategorie());
+        }
+
+        Categorie saved = categorieRepository.save(categorie);
+        System.out.println("   ✅ Mise à jour effectuée");
+        return saved;
+    }
+
+    /**
+     * 🗂️ Archiver une catégorie (Soft Delete)
+     * Passe l'état actif à false au lieu de supprimer physiquement
      */
     @Transactional
     public Categorie archiverCategorie(Long id) {
+        System.out.println("🗂️ [ARCHIVER CATÉGORIE] ID: " + id);
         Categorie categorie = getCategorie(id);
         categorie.setActif(false);
-        return categorieRepository.save(categorie);
+        Categorie saved = categorieRepository.save(categorie);
+        System.out.println("   ✅ Catégorie archivée");
+        return saved;
+    }
+
+    /**
+     * 🔄 Réactiver une catégorie archivée
+     */
+    @Transactional
+    public Categorie reactiverCategorie(Long id) {
+        System.out.println("🔄 [RÉACTIVER CATÉGORIE] ID: " + id);
+        Categorie categorie = categorieRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée"));
+        categorie.setActif(true);
+        Categorie saved = categorieRepository.save(categorie);
+        System.out.println("   ✅ Catégorie réactivée");
+        return saved;
+    }
+
+    /**
+     * 🔍 Vérifier si une catégorie existe par type
+     */
+    public boolean existeParType(TypeTicket type) {
+        return categorieRepository.findByType(type).isPresent();
     }
 }

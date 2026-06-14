@@ -1,8 +1,12 @@
 package com.sagem.g2ii.Entity.Inventaire;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Utilisateur;
+import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,14 +27,17 @@ public class Equipement {
     @Column(nullable = false, length = 255)
     private String designation;
 
-    @ManyToOne(optional = false)
+    @ManyToOne
     @JoinColumn(name = "article_id")
+    @JsonIgnoreProperties("equipements") // 👈 Sécurité supplémentaire
     private Article article;
 
+    // Enregistrement du statut sous forme de chaîne de caractères (ACTIF, EN_REPARATION, etc.)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private StatutEquipement statut; // ACTIF, EN_REPARATION, A_RECYCLER
+    @Column(nullable = false, length = 50)
+    private StatutArticle statut;
 
+    // Relation avec la localisation physique
     @ManyToOne
     @JoinColumn(name = "localisation_id")
     private Localisation localisation;
@@ -41,12 +48,18 @@ public class Equipement {
     @Column(name = "date_acquisition")
     private LocalDateTime dateAcquisition;
 
+    @Column(nullable = false, unique = true, length = 150)
+    private String codeBarres;
+
     @Column(name = "date_mise_au_rebut")
     private LocalDateTime dateMiseAuRebut;
 
+    // Utilisation des annotations Hibernate pour harmoniser avec l'entité Localisation
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime dateCreation;
 
+    @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime dateModification;
 
@@ -59,21 +72,14 @@ public class Equipement {
 
     @PrePersist
     protected void onCreate() {
-        dateCreation = LocalDateTime.now();
-        dateModification = LocalDateTime.now();
-        if (statut == null) {
-            statut = StatutEquipement.ACTIF;
+        // Gestion de la valeur par défaut du statut si non spécifié
+        if (this.statut == null) {
+            this.statut = StatutArticle.ACTIF;
         }
-    }
 
-    @PreUpdate
-    protected void onUpdate() {
-        dateModification = LocalDateTime.now();
-    }
-
-    public enum StatutEquipement {
-        ACTIF,
-        EN_REPARATION,
-        A_RECYCLER
+        // Génération automatique du code-barres basé sur le numéro de série
+        if (this.codeBarres == null && this.numeroSerie != null) {
+            this.codeBarres =  this.numeroSerie.trim().toUpperCase();
+        }
     }
 }

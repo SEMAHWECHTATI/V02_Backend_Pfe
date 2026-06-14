@@ -37,6 +37,8 @@ public class Fournisseur {
     private LocalDateTime dateCreation;
 
     @OneToMany(mappedBy = "fournisseur", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<Article> articles = new HashSet<>();
 
     @PrePersist

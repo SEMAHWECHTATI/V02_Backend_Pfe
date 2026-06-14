@@ -8,7 +8,9 @@ public enum TypeArticle {
     RESEAU("Équipement réseau"),
     SERVEUR("Serveur"),
     MATERIEL_ROULANT("Matériel roulant"),
-    PERIPHERIQUE("Périphérique");
+    PERIPHERIQUE("Périphérique"),
+    SERIALISE(""),  // Pour les PC, Serveurs, Smartphones
+    QUANTITE("") ;   // Pour les consommables (Souris, Câbles, Toners)
 
     private final String label;
 

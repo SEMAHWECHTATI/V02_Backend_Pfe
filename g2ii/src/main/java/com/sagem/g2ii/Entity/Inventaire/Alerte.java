@@ -6,6 +6,7 @@ import com.sagem.g2ii.Entity.Enumeration.TypeAlerte;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -43,16 +44,26 @@ public class Alerte {
     @OneToMany(mappedBy = "alerte", cascade = CascadeType.ALL)
     private List<Notification> notifications;
 
+    // 💡 Ajoutez @Builder.Default pour forcer Lombok à initialiser la liste
+    @Builder.Default
     @ManyToMany
     @JoinTable(
             name = "alerte_article",
             joinColumns = @JoinColumn(name = "alerte_id"),
             inverseJoinColumns = @JoinColumn(name = "article_id")
     )
-    private List<Article> articles;
+    private List<Article> articles = new ArrayList<>(); // 👈 Ajoutez "= new ArrayList<>()" ici
 
     @PrePersist
     public void prePersist() {
         dateCreation = LocalDateTime.now();
+    }
+
+    // 💡 Méthode Helper pour sécuriser l'ajout d'un article
+    public void addArticle(Article article) {
+        if (this.articles == null) {
+            this.articles = new ArrayList<>();
+        }
+        this.articles.add(article);
     }
 }

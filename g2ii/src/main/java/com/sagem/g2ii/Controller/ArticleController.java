@@ -6,10 +6,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,6 +24,12 @@ public class ArticleController {
 
     @Autowired
     private final ArticleService articleService;
+
+    @Autowired
+    private final JdbcTemplate jdbcTemplate;
+
+
+
 
     /**
      * ✅ Créer article
@@ -153,6 +162,31 @@ public class ArticleController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+    @GetMapping("/inventory/evolution-financiere")
+    public ResponseEntity<?> getEvolutionFinanciere() {
+        String sql = "SELECT annee_mois, valeur_totale FROM historique_finance_stock ORDER BY annee_mois ASC LIMIT 12";
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+
+        List<String> labels = new ArrayList<>();
+        List<Double> valeurs = new ArrayList<>();
+
+        for (Map<String, Object> row : rows) {
+            labels.add((String) row.get("annee_mois"));
+            valeurs.add(((BigDecimal) row.get("valeur_totale")).doubleValue());
+        }
+
+        // On ajoute le mois en cours en temps réel à la fin du tableau
+        labels.add("En cours");
+        valeurs.add(articleService.getTotalInventoryValue().doubleValue());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("labels", labels);
+        response.put("valeurs", valeurs);
+
+        return ResponseEntity.ok(response);
+    }
+
 
     /**
      * ✅ Statistiques détaillées inventaire

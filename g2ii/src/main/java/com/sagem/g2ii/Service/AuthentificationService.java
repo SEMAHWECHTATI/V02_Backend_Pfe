@@ -59,7 +59,7 @@ public class AuthentificationService {
             user.setTentative_login(tentatives);
 
             if (tentatives >= 3) {
-                user.setCompteBloqueJusqua(LocalDateTime.now().plusMinutes(5));
+                user.setCompteBloqueJusqua(LocalDateTime.now().plusMinutes(2));
                 utilisateurRepository.save(user);
 
                 journalAuditService.enregistrerLog(ActionAudit.BLOCAGE, "Compte bloqué pour 5 minutes suite à 3 tentatives infructueuses", user);
@@ -74,7 +74,6 @@ public class AuthentificationService {
         // 5. ✅ SUCCÈS : Le mot de passe est bon !
         user.setTentative_login(0);
         user.setDate_dernier_Connex(LocalDateTime.now());
-        user.setCompteBloqueJusqua(null);
         utilisateurRepository.save(user);
 
         journalAuditService.enregistrerLog(ActionAudit.CONNEXION, "Connexion réussie", user);

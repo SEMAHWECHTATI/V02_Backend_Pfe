@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Entity.Inventaire;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Enumeration.TypeArticle;
 import jakarta.persistence.*;
@@ -51,8 +52,9 @@ public class Article {
     @Column(precision = 10, scale = 2)
     private BigDecimal prixUnitaire = BigDecimal.ZERO;
 
-    @Column(length = 100)
-    private String fournisseur;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fournisseur_id")
+    private Fournisseur fournisseur;
 
     private LocalDate dateAchat;
 
@@ -88,7 +90,14 @@ public class Article {
     private List<Stock> stocks;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties("article")
+    private List<Equipement> equipements;
+
+
+    @OneToMany(mappedBy = "article", cascade = CascadeType.ALL)
     private List<ConsommationPiece> consommations;
+
+
 
     @PrePersist
     public void prePersist() {

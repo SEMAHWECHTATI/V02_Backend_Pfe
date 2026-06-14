@@ -1,6 +1,7 @@
 package com.sagem.g2ii.DTOs;
 
 
+import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Inventaire.Equipement;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -28,7 +29,7 @@ public class EquipementDTO {
     private String articleDesignation;
 
     @NotNull(message = "Statut obligatoire")
-    private Equipement.StatutEquipement statut;
+    private StatutArticle statut;
 
     private Long localisationId;
 

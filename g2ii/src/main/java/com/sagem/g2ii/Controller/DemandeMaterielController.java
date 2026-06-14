@@ -159,6 +159,26 @@ public class DemandeMaterielController {
             ));
         }
     }
+   /* 🔍 Récupérer une demande spécifique par ID
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getDemandeMaterielById(@PathVariable Long id) {
+        try {
+            log.info("🔍 GET /demandes-materiel/{}", id);
+            DemandeMaterielDTO demande = demandeService.getDemandeById(id);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "demande", demande
+            ));
+        } catch (Exception e) {
+            log.error("❌ Erreur récupération demande ID {}: ", id, e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
 
     /**
      * 📋 Récupérer demandes validées gestionnaire (Pour Admin)

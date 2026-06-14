@@ -42,6 +42,16 @@ public class DemandeMaterielService {
     }
 
     /**
+     * 🔍 Récupérer une demande par son ID
+     */
+    public DemandeMaterielDTO getDemandeById(Long id) {
+        log.info("🔍 Récupération de la demande ID: {}", id);
+        DemandeMateriel demande = demandeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Demande non trouvée avec l'ID: " + id));
+        return convertToDTO(demande);
+    }
+
+    /**
      * 📝 Créer une demande de matériel
      */
     @Transactional
@@ -293,22 +303,40 @@ public class DemandeMaterielService {
      * 🔄 Convertir Entity en DTO
      */
     private DemandeMaterielDTO convertToDTO(DemandeMateriel demande) {
+        if (demande == null) return null;
 
         return DemandeMaterielDTO.builder()
-
+                // --- Informations de la Demande ---
                 .id(demande.getId())
                 .reference(demande.getReference())
-
-                .articleId(demande.getArticle().getId())
-                .articleReference(demande.getArticle().getReference())
-                .articleDesignation(demande.getArticle().getDesignation())
-
                 .quantiteDemandee(demande.getQuantiteDemandee())
                 .type(demande.getType())
                 .statut(demande.getStatut())
                 .justification(demande.getJustification())
+                .referenceTicket(demande.getReferenceTicket())
+                .motifRejet(demande.getMotifRejet())
 
-                // 🔥 DEMANDEUR
+                // --- Chronologie (Dates) ---
+                .dateCreation(demande.getDateCreation())
+                .dateModification(demande.getDateModification())
+                .dateConsommation(demande.getDateConsommation())
+                .dateValidationGestionnaire(demande.getDateValidationGestionnaire())
+                .dateValidationAdmin(demande.getDateValidationAdmin())
+
+                // --- Informations Article (Sécurisé contre le null) ---
+                .articleId(demande.getArticle() != null ? demande.getArticle().getId() : null)
+                .articleReference(demande.getArticle() != null ? demande.getArticle().getReference() : null)
+                .articleDesignation(demande.getArticle() != null ? demande.getArticle().getDesignation() : "Article inconnu")
+                // Note : Si ton entité 'Article' possède ces champs, décommmente-les et adapte les getters :
+                 .articleTypeArticle(demande.getArticle() != null && demande.getArticle().getTypeArticle() != null ? demande.getArticle().getTypeArticle().name() : "N/A")
+                 .articleCategorie(demande.getArticle() != null ? demande.getArticle().getCategorie() : "N/A")
+                .articleQuantiteEnStock(demande.getArticle() != null ? demande.getArticle().getQuantiteEnStock() : 0)
+                 .articleSeuilMinimum(demande.getArticle() != null ? demande.getArticle().getSeuilMinimum() : 0)
+                 .articlePrixUnitaire(demande.getArticle() != null ? demande.getArticle().getPrixUnitaire() : java.math.BigDecimal.ZERO)
+
+                // --- Informations Intervenants ---
+
+                // 🔥 1. DEMANDEUR (Sous-DTO : DemandeReponseDTO)
                 .utilisateurDemandeur(
                         demande.getUtilisateurDemandeur() != null ?
                                 DemandeReponseDTO.builder()
@@ -318,46 +346,20 @@ public class DemandeMaterielService {
                                         .email(demande.getUtilisateurDemandeur().getEmail())
                                         .telephone(demande.getUtilisateurDemandeur().getTelephone())
                                         .departement(demande.getUtilisateurDemandeur().getDepartement())
+                                        .roleDemande(demande.getUtilisateurDemandeur().getRole()) // Assigne le rôle de l'entité
                                         .build()
                                 : null
                 )
 
-                // 🔥 GESTIONNAIRE
-                .utilisateurDemandeur(
-                        demande.getUtilisateurGestionnaire() != null ?
-                                DemandeReponseDTO.builder()
-                                        .id(demande.getUtilisateurGestionnaire().getId())
-                                        .nom(demande.getUtilisateurGestionnaire().getNom())
-                                        .prenom(demande.getUtilisateurGestionnaire().getPrenom())
-                                        .email(demande.getUtilisateurGestionnaire().getEmail())
-                                        .telephone(demande.getUtilisateurGestionnaire().getTelephone())
-                                        .departement(demande.getUtilisateurGestionnaire().getDepartement())
-                                        .build()
-                                : null
-                )
+                // 🔥 2. GESTIONNAIRE (Champs mis à plat comme définis dans ton DTO)
+                .utilisateurGestionnaireId(demande.getUtilisateurGestionnaire() != null ? demande.getUtilisateurGestionnaire().getId() : null)
+                .utilisateurGestionnaireNom(demande.getUtilisateurGestionnaire() != null ? demande.getUtilisateurGestionnaire().getNom() : null)
+                .utilisateurGestionnairePrenom(demande.getUtilisateurGestionnaire() != null ? demande.getUtilisateurGestionnaire().getPrenom() : null)
 
-                .dateValidationGestionnaire(demande.getDateValidationGestionnaire())
-
-                // 🔥 ADMIN
-                .utilisateurDemandeur(
-                        demande.getUtilisateurAdmin() != null ?
-                                DemandeReponseDTO.builder()
-                                        .id(demande.getUtilisateurAdmin().getId())
-                                        .nom(demande.getUtilisateurAdmin().getNom())
-                                        .prenom(demande.getUtilisateurAdmin().getPrenom())
-                                        .email(demande.getUtilisateurAdmin().getEmail())
-                                        .telephone(demande.getUtilisateurAdmin().getTelephone())
-                                        .departement(demande.getUtilisateurAdmin().getDepartement())
-                                        .build()
-                                : null
-                )
-
-                .dateValidationAdmin(demande.getDateValidationAdmin())
-                .motifRejet(demande.getMotifRejet())
-                .dateCreation(demande.getDateCreation())
-                .dateModification(demande.getDateModification())
-                .dateConsommation(demande.getDateConsommation())
-                .referenceTicket(demande.getReferenceTicket())
+                // 🔥 3. ADMIN (Champs mis à plat comme définis dans ton DTO)
+                .utilisateurAdminId(demande.getUtilisateurAdmin() != null ? demande.getUtilisateurAdmin().getId() : null)
+                .utilisateurAdminNom(demande.getUtilisateurAdmin() != null ? demande.getUtilisateurAdmin().getNom() : null)
+                .utilisateurAdminPrenom(demande.getUtilisateurAdmin() != null ? demande.getUtilisateurAdmin().getPrenom() : null)
 
                 .build();
     }

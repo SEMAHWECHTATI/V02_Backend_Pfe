@@ -21,6 +21,7 @@ public class MouvementStockDTO {
     private String localisationDestination;
     private LocalDateTime dateMouvement;
     private Long stockId;
+    private String stockDesignation;
     private Long articleId;
     private String articleDesignation;
     private Long responsableId;
