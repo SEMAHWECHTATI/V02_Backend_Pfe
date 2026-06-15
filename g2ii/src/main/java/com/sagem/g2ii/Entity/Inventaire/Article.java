@@ -56,6 +56,9 @@ public class Article {
     @JoinColumn(name = "fournisseur_id")
     private Fournisseur fournisseur;
 
+    @Column
+    private Double tauxDisponibilite;
+
     private LocalDate dateAchat;
 
     private LocalDate dateGarantie;

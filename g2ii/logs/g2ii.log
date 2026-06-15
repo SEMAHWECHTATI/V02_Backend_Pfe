@@ -1,1 +1,46 @@
-2026-06-14T13:33:43.096+01:00  WARN 25756 --- [HikariPool-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=17h22m2s373ms346µs300ns).
+2026-06-15T18:36:29.832+01:00  INFO 24988 --- [main] com.sagem.g2ii.G2iiApplication           : Starting G2iiApplication using Java 17.0.8.1 with PID 24988 (D:\Test pfe 2026\g2ii\target\classes started by LENOVO in D:\Test pfe 2026\g2ii)
+2026-06-15T18:36:29.839+01:00 DEBUG 24988 --- [main] com.sagem.g2ii.G2iiApplication           : Running with Spring Boot v3.1.8, Spring v6.0.16
+2026-06-15T18:36:29.842+01:00  INFO 24988 --- [main] com.sagem.g2ii.G2iiApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-06-15T18:36:32.906+01:00  INFO 24988 --- [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-15T18:36:33.430+01:00  INFO 24988 --- [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 454 ms. Found 22 JPA repository interfaces.
+2026-06-15T18:36:36.205+01:00  INFO 24988 --- [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8070 (http)
+2026-06-15T18:36:36.231+01:00  INFO 24988 --- [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-06-15T18:36:36.231+01:00  INFO 24988 --- [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.18]
+2026-06-15T18:36:36.588+01:00  INFO 24988 --- [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-06-15T18:36:36.589+01:00  INFO 24988 --- [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 6550 ms
+2026-06-15T18:36:37.063+01:00  INFO 24988 --- [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-06-15T18:36:37.237+01:00  INFO 24988 --- [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.2.20.Final
+2026-06-15T18:36:37.242+01:00  INFO 24988 --- [main] org.hibernate.cfg.Environment            : HHH000406: Using bytecode reflection optimizer
+2026-06-15T18:36:38.292+01:00  INFO 24988 --- [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-15T18:36:38.393+01:00  INFO 24988 --- [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-06-15T18:36:39.327+01:00  INFO 24988 --- [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@4fa91d5b
+2026-06-15T18:36:39.333+01:00  INFO 24988 --- [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-06-15T18:36:39.607+01:00  WARN 24988 --- [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-15T18:36:43.468+01:00  INFO 24988 --- [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-15T18:36:44.251+01:00  INFO 24988 --- [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-15T18:36:48.587+01:00 DEBUG 24988 --- [main] c.s.g.securiter.JwtAuthenticationFilter  : Filter 'jwtAuthenticationFilter' configured for use
+2026-06-15T18:36:50.724+01:00  INFO 24988 --- [main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-15T18:36:54.904+01:00  WARN 24988 --- [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-15T18:36:55.739+01:00  INFO 24988 --- [main] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@7c705090, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@5a930c03, org.springframework.security.web.context.SecurityContextHolderFilter@6a16b724, org.springframework.security.web.header.HeaderWriterFilter@472bcf53, org.springframework.web.filter.CorsFilter@1606721f, org.springframework.security.web.authentication.logout.LogoutFilter@4e8c27f7, com.sagem.g2ii.securiter.JwtAuthenticationFilter@650e6569, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@4426f362, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@536e5b21, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@198f7c5f, org.springframework.security.web.session.SessionManagementFilter@7b8058e0, org.springframework.security.web.access.ExceptionTranslationFilter@71980fa7, org.springframework.security.web.access.intercept.AuthorizationFilter@8b5de1b]
+2026-06-15T18:36:57.136+01:00  WARN 24988 --- [main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-06-15T18:36:57.143+01:00  INFO 24988 --- [main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-15T18:36:57.149+01:00  INFO 24988 --- [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-06-15T18:36:57.162+01:00  INFO 24988 --- [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-06-15T18:36:57.168+01:00  INFO 24988 --- [main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-06-15T18:36:57.207+01:00  INFO 24988 --- [main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-06-15T18:36:57.236+01:00 ERROR 24988 --- [main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8070 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8070 or configure this application to listen on another port.
+

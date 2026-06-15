@@ -57,4 +57,16 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT SUM(a.prixUnitaire * a.quantiteEnStock) FROM Article a")
     BigDecimal calculerValeurTotaleInventaire();
 
+    // 🔄 CORRIGÉ : Utilisation de quantiteEnStock et prixUnitaire
+    @Query("SELECT SUM(a.quantiteEnStock * a.prixUnitaire) FROM Article a")
+    Double calculateTotalAssetValue();
+
+    // 🔄 CORRIGÉ : Utilisation de quantiteEnStock au lieu de quantite
+    @Query("SELECT COUNT(a) FROM Article a WHERE a.quantiteEnStock <= a.seuilCritique")
+    long countOutOfStockArticles();
+
+    // ⚠️ Attention : Vérifie bien que "tauxDisponibilite" existe dans ton entité Article.java
+    @Query("SELECT AVG(a.tauxDisponibilite) FROM Article a")
+    Double getAverageAvailabilityRate();
+
 }
