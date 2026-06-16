@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+//pour queTu as déjà mis en place un mécanisme de file d'attente résilient
+// (EmailQueue) associé à un traitement planifié (EmailScheduler) pour rejouer les envois
+// échoués (par exemple en cas de coupure réseau ou d'indisponibilité du serveur SMTP).
 
 @Entity
 @Getter

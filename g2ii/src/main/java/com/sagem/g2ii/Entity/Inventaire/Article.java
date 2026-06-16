@@ -1,6 +1,7 @@
 package com.sagem.g2ii.Entity.Inventaire;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.sagem.g2ii.Entity.Authentification.Groupe;
 import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Enumeration.TypeArticle;
 import jakarta.persistence.*;
@@ -111,4 +112,9 @@ public class Article {
     public void preUpdate() {
         dateModification = LocalDateTime.now();
     }
+
+    // 🛠️ AJOUT DE LA RELATION AVEC LE GROUPE DE TECHNICIENS RESPONSABLE
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "groupe_id")
+    private Groupe groupe;
 }
