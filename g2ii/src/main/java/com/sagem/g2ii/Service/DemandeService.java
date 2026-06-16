@@ -8,6 +8,7 @@ import com.sagem.g2ii.Entity.Email.EmailQueue;
 import com.sagem.g2ii.Entity.Enumeration.*;
 import com.sagem.g2ii.Repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-
+@Slf4j
 public class DemandeService {
 
     @Autowired
@@ -39,11 +40,16 @@ public class DemandeService {
     private IntGroupe groupeRepo;
     @Autowired
     private EmailQueueRepository emailQueueRepo;
+    @Autowired
+    private AlerteService alerteService; // 🛠️ Injection du moteur d'alertes (Tâche 5)
 
-    // 1. Créer une nouvelle demande (Utilise le DTO Entrant)
+    /**
+     * 📝 1. Créer une nouvelle demande d'inscription + 🚨 Alerte Système
+     */
     public DemandeReponseDTO creerDemande(DemandeCreationDTO dto) {
+        log.info("📝 Réception d'une nouvelle demande d'inscription pour l'email: {}", dto.getEmail());
 
-        // CORRECTION : Le groupe est optionnel lors de la demande !
+        // Le groupe est optionnel lors de la demande
         Groupe groupe = null;
         if (dto.getGroupeId() != null) {
             groupe = groupeRepo.findById(dto.getGroupeId())
@@ -65,6 +71,23 @@ public class DemandeService {
         demande.setDateDemande(LocalDateTime.now());
 
         DemandeInscription demandeSauvegardee = demandeRepo.save(demande);
+        log.info("✅ Demande d'inscription enregistrée en BDD [ID: {}]", demandeSauvegardee.getId());
+
+        // 🚨 ALERTES AUTOMATIQUES (Tâche 5) : Notification aux Administrateurs sur l'interface Web
+        try {
+            String messageAlerte = String.format(
+                    "Nouvelle demande d'inscription en attente : %s %s (%s) sollicite le rôle %s.",
+                    demandeSauvegardee.getPrenom(),
+                    demandeSauvegardee.getNom(),
+                    demandeSauvegardee.getDepartement(),
+                    demandeSauvegardee.getRoleDemande()
+            );
+
+            // On déclenche la création d'une alerte (Le service va notifier dynamiquement les Admins via WebSocket)
+            alerteService.creerAlerte(null, messageAlerte);
+        } catch (Exception e) {
+            log.error("⚠️ Impossible d'émettre la notification de demande d'inscription: {}", e.getMessage());
+        }
 
         return convertirEnDTO(demandeSauvegardee);
     }
@@ -96,9 +119,13 @@ public class DemandeService {
                 .build();
     }
 
-    // 3. APPROUVER une demande (CORRIGÉ AVEC LES RÈGLES RBAC)
+    /**
+     * 🎉 3. APPROUVER une demande + Compte Utilisateur + 📨 Escalade Mail & Push
+     */
     @Transactional
     public void approuverDemande(Long demandeId, ApprobationDTO approbation) {
+        log.info("🎯 Approbation de la demande ID: {} par l'administrateur.", demandeId);
+
         DemandeInscription demande = demandeRepo.findById(demandeId)
                 .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
 
@@ -106,12 +133,10 @@ public class DemandeService {
         Groupe groupeChoisi = null;
         roleUtilisateur roleAccorde = approbation.getRoleAccorde();
 
-        // 1. On vérifie si Angular a envoyé un ID de groupe
         if (approbation.getGroupeId() != null) {
             groupeChoisi = groupeRepo.findById(approbation.getGroupeId())
                     .orElseThrow(() -> new RuntimeException("Le groupe sélectionné par l'administrateur n'existe pas."));
         }
-        // 2. Si aucun groupe n'est envoyé, on vérifie si le rôle l'exigeait obligatoirement
         else if (roleAccorde == roleUtilisateur.Technicien || roleAccorde == roleUtilisateur.Gestionnaire_Stock) {
             throw new RuntimeException("Erreur : Un " + roleAccorde.name() + " doit obligatoirement être affecté à un groupe !");
         }
@@ -121,10 +146,10 @@ public class DemandeService {
         demande.setDateTraitement(LocalDateTime.now());
         demandeRepo.save(demande);
 
-        // Génération du mot de passe
+        // Génération du mot de passe temporaire
         String motDePasseTempClair = UUID.randomUUID().toString().substring(0, 8);
 
-        // Création de l'utilisateur avec les choix de l'Admin
+        // Création de l'utilisateur
         Utilisateur nouvelUtilisateur = Utilisateur.builder()
                 .nom(demande.getNom())
                 .prenom(demande.getPrenom())
@@ -132,7 +157,7 @@ public class DemandeService {
                 .matricule(demande.getMatricule())
                 .telephone(demande.getTelephone())
                 .departement(demande.getDepartement())
-                .role(roleAccorde) // Le rôle définitif
+                .role(roleAccorde)
                 .motDePasse(passwordEncoder.encode(motDePasseTempClair))
                 .motDepassetemporaire(true)
                 .dateExpmdpTemp(LocalDateTime.now().plusHours(24))
@@ -143,13 +168,12 @@ public class DemandeService {
 
         utilisateurRepo.save(nouvelUtilisateur);
 
+        // --- DISTRIBUTION NOTIFICATION (EMAIL) ---
         try {
-            // Tentative d'envoi immédiat
             emailService.envoyerEmailBienvenue(nouvelUtilisateur.getEmail(), nouvelUtilisateur.getPrenom(), motDePasseTempClair);
-            System.out.println("✅ Email envoyé avec succès en direct !");
+            log.info("✅ Email de bienvenue expédié en direct à {}", nouvelUtilisateur.getEmail());
         } catch (Exception e) {
-            // 🚨 SI CA ECHOUE : ON SAUVEGARDE DANS LA TABLE EMAIL_QUEUE
-            System.err.println("⚠️ Échec envoi direct. Sauvegarde en base de données...");
+            log.warn("⚠️ Échec de l'envoi direct du mail. Transfert vers la file d'attente Outbox 'EmailQueue'...");
 
             EmailQueue emailAttente = new EmailQueue();
             emailAttente.setDestinataire(nouvelUtilisateur.getEmail());
@@ -164,23 +188,33 @@ public class DemandeService {
                     + "⚠️ Veuillez vous connecter et changer ce mot de passe immédiatement lors de votre première connexion.\n\n"
                     + "Cordialement,\n"
                     + "L'équipe Support IT");
-//            emailAttente.setContenu("Bonjour " + nouvelUtilisateur.getPrenom() + ", votre mot de passe est : " + motDePasseTempClair);
             emailAttente.setEnvoye(false);
             emailAttente.setTentatives(0);
             emailAttente.setDernierErreur(e.getMessage());
 
-            emailQueueRepo.save(emailAttente); // C'est cette ligne qui remplit votre tableau !
-            System.out.println("📌 Email mis en file d'attente avec succès.");
+            emailQueueRepo.save(emailAttente);
+            log.info("📌 Email de bienvenue consigné dans EmailQueue avec succès.");
         }
-        // Audit mis à jour avec le rôle
-        JournalAudit log = JournalAudit.builder()
+
+        // 🚨 PUSH NOTIFICATION (Tâche 5) : Signaler au système l'intégration du nouveau profil
+        try {
+            String messagePush = String.format("Le profil de %s %s a été approuvé avec succès en tant que %s.",
+                    nouvelUtilisateur.getPrenom(), nouvelUtilisateur.getNom(), roleAccorde.name());
+            alerteService.creerAlerte(null, messagePush);
+        } catch (Exception e) {
+            log.error("⚠️ Échec d'émission de l'alerte push d'approbation: {}", e.getMessage());
+        }
+
+        // Journal d'audit
+        JournalAudit logAudit = JournalAudit.builder()
                 .action(ActionAudit.APPROBATION_DEMANDE)
                 .description("Approbation de la demande ID: " + demandeId + " en tant que " + roleAccorde)
                 .dateAction(LocalDateTime.now())
                 .adresseIp("127.0.0.1")
                 .build();
-        auditRepo.save(log);
+        auditRepo.save(logAudit);
 
+        // Profil des préférences par défaut (Canal Web + Email Actifs)
         PreferenceNotification prefs = PreferenceNotification.builder()
                 .utilisateur(nouvelUtilisateur)
                 .canalEmail(true)
@@ -191,8 +225,13 @@ public class DemandeService {
         preferenceRepo.save(prefs);
     }
 
-    // 4. REFUSER une demande
+    /**
+     * ❌ 4. REFUSER une demande + 📨 Routage Mail d'information
+     */
+    @Transactional
     public void refuserDemande(Long demandeId, String motif) {
+        log.info("❌ Rejet de la demande d'inscription ID: {} | Motif: {}", demandeId, motif);
+
         DemandeInscription demande = demandeRepo.findById(demandeId)
                 .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
 
@@ -202,10 +241,11 @@ public class DemandeService {
 
         demandeRepo.save(demande);
 
-
         try {
             emailService.envoyerEmailRefus(demande.getEmail(), demande.getPrenom(), motif);
+            log.info("✅ Email de refus envoyé directement à {}", demande.getEmail());
         } catch (Exception e) {
+            log.warn("⚠️ Échec d'envoi postal direct du refus. Enregistrement dans EmailQueue.");
             EmailQueue emailAttente = new EmailQueue();
             emailAttente.setDestinataire(demande.getEmail());
             emailAttente.setSujet("Mise à jour de votre demande d'inscription");
@@ -216,11 +256,12 @@ public class DemandeService {
                     + "Cordialement,\n"
                     + "L'équipe Support IT");
             emailAttente.setEnvoye(false);
+            emailAttente.setTentatives(0);
             emailQueueRepo.save(emailAttente);
         }
     }
 
-    public void deletedemandeInscrip   (Long demandeId) {
+    public void deletedemandeInscrip(Long demandeId) {
         demandeRepo.deleteById(demandeId);
     }
 
@@ -228,17 +269,13 @@ public class DemandeService {
         return demandeRepo.findByArchiveeFalse();
     }
 
-    // 2. Obtenir les demandes archivées
     public List<DemandeInscription> getDemandesArchivees() {
         return demandeRepo.findByArchiveeTrue();
     }
 
-    // 3. Archiver une demande
     public DemandeInscription archiverDemande(Long id) {
         DemandeInscription demande = demandeRepo.findById(id).orElseThrow();
-
-        demande.setArchivee(true); // On change le statut !
-        return demandeRepo.save(demande); // On sauvegarde
-
+        demande.setArchivee(true);
+        return demandeRepo.save(demande);
     }
 }

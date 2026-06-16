@@ -2,9 +2,12 @@ version: '3.8'
 
 services:
 
+  # ============================================================================
+  # 1. Base de données PostgreSQL
+  # ============================================================================
   ma-base-db:
     image: postgres:17
-    container_name: postgres-g2ii-container
+    container_name: Base_donnee_pfe_2026
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -20,23 +23,47 @@ services:
       timeout: 5s
       retries: 5
 
+  # ============================================================================
+  # 2. Application Backend (Spring Boot)
+  # ============================================================================
   backend-app:
+    build:
+      context: "D:\\Test pfe 2026\\g2ii" # 👈 Chemin absolu de ton projet Backend
+      dockerfile: Dockerfile
     image: g2ii-backend-app:latest
     container_name: g2ii-app-container
     ports:
-      - "8070:8070"
+      - "8082:8082"
     depends_on:
       ma-base-db:
         condition: service_healthy
     environment:
-      # ✅ Les variables d'environnement écrasent application.yml
       SPRING_DATASOURCE_URL: jdbc:postgresql://ma-base-db:5432/g2ii_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: admin
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
+      SERVER_PORT: 8082
     restart: on-failure
 
+  # ============================================================================
+  # 3. Application Frontend (Angular + Nginx)
+  # ============================================================================
+  frontend-app:
+    build:
+      context: "D:\\ProjetPFE2026Sagemcom\\ArchitecturePfe\\frontend\\apppfe" # 👈 Chemin absolu de ton projet Frontend
+      dockerfile: Dockerfile
+    image: g2ii-frontend-app:latest
+    container_name: g2ii-frontend-container
+    ports:
+      - "80:80"
+    depends_on:
+      - backend-app
+    restart: always
+
+  # ============================================================================
+  # 4. Interface d'administration de la BDD
+  # ============================================================================
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin-container

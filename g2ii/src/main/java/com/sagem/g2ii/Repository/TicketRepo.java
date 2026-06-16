@@ -14,7 +14,7 @@ import java.util.Optional;
 
 @Repository
 public interface TicketRepo extends JpaRepository<Ticket, Long> {
-
+    List<Ticket> findAll();
     List<Ticket> findByDemandeur_Id(Long idDemandeur);
     List<Ticket> findByGroupeAssigne_Id(Long idGroupe);
     List<Ticket> findByStatut(StatutTicket statut);

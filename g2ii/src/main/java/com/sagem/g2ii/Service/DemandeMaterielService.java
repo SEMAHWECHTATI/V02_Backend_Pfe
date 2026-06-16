@@ -32,6 +32,7 @@ public class DemandeMaterielService {
     private final ArticleRepository articleRepository;
     private final IntUtilisateur utilisateurRepository;
     private final ConsommationPieceRepository consommationRepository;
+    private final AlerteService alerteService;
 
 
     /**
@@ -52,7 +53,7 @@ public class DemandeMaterielService {
     }
 
     /**
-     * 📝 Créer une demande de matériel
+     * 📝 Créer une demande de matériel + 🚨 Alerte Création Demande
      */
     @Transactional
     public DemandeMaterielDTO creerDemande(DemandeMaterielDTO dto, Long utilisateurId) {
@@ -98,6 +99,22 @@ public class DemandeMaterielService {
         DemandeMateriel saved = demandeRepository.save(demande);
         log.info("✅ Demande créée avec succès: {} (Référence: {})", saved.getId(), saved.getReference());
 
+        // 🚨 ALERTES AUTOMATIQUES (Tâche 5) : Notification d'ouverture de flux
+        try {
+            String messageFlux = String.format(
+                    "Nouvelle demande d'approvisionnement '%s' créée par %s %s pour l'article '%s' (Quantité: %d). En attente de validation gestionnaire.",
+                    saved.getReference(),
+                    utilisateur.getPrenom(),
+                    utilisateur.getNom(),
+                    article.getDesignation(),
+                    saved.getQuantiteDemandee()
+            );
+            // Le moteur route vers les techniciens/gestionnaires associés au groupe de l'article
+            alerteService.creerAlerte(article, messageFlux);
+        } catch (Exception e) {
+            log.error("⚠️ Échec d'émission de l'alerte à la création de la demande: {}", e.getMessage());
+        }
+
         return convertToDTO(saved);
     }
 
@@ -141,7 +158,7 @@ public class DemandeMaterielService {
     }
 
     /**
-     * ✅ Valider demande par Admin (CONSOMME LE STOCK)
+     * ✅ Valider demande par Admin (CONSOMME LE STOCK) + 🚨 Alerte Seuil de Stock Critique/Rupture
      */
     @Transactional
     public DemandeMaterielDTO validerParAdmin(Long demandeId, Long adminId) {
@@ -182,11 +199,35 @@ public class DemandeMaterielService {
         DemandeMateriel updated = demandeRepository.save(demande);
         log.info("✅ Demande validée par admin et stock consommé - Référence: {}", updated.getReference());
 
+        // 🚨 ALERTES AUTOMATIQUES (Tâche 5) : Analyse et notification si franchissement de seuils critiques
+        try {
+            if (demande.getArticle() != null) {
+                Article articleConcerne = demande.getArticle();
+
+                // Si la quantité après déduction franchit le seuil d'alerte configuré
+                if (articleConcerne.getQuantiteEnStock() <= articleConcerne.getSeuilMinimum()) {
+                    String messageAlerte = String.format(
+                            "Le stock de l'article '%s' (Réf: %s) vient d'être impacté par la validation de la demande %s. Quantité restante : %d unités.",
+                            articleConcerne.getDesignation(),
+                            articleConcerne.getReference(),
+                            updated.getReference(),
+                            articleConcerne.getQuantiteEnStock()
+                    );
+
+                    // AlerteService détermine automatiquement la sévérité (CRITIQUE si 0, HAUTE si sous seuil critique, etc.)
+                    // et propage le signal multi-canal (WebSocket Angular + Email)
+                    alerteService.creerAlerte(articleConcerne, messageAlerte);
+                }
+            }
+        } catch (Exception e) {
+            log.error("⚠️ Impossible de générer l'alerte de stock après validation: {}", e.getMessage());
+        }
+
         return convertToDTO(updated);
     }
 
     /**
-     * ❌ Rejeter une demande (AUCUNE CONSOMMATION)
+     * ❌ Rejeter une demande (AUCUNE CONSOMMATION) + 🚨 Alerte Rejet au Demandeur
      */
     @Transactional
     public DemandeMaterielDTO rejeterDemande(Long demandeId, Long validateurId, String motifRejet) {
@@ -214,6 +255,23 @@ public class DemandeMaterielService {
 
         DemandeMateriel updated = demandeRepository.save(demande);
         log.info("✅ Demande rejetée - Référence: {}, Motif: {}", updated.getReference(), motifRejet);
+
+        // 🚨 ALERTES AUTOMATIQUES (Tâche 5) : Notification immédiate de refus au demandeur
+        try {
+            if (demande.getUtilisateurDemandeur() != null && demande.getArticle() != null) {
+                String messageRejet = String.format(
+                        "Votre demande de matériel %s concernant l'article '%s' a été REJETÉE. Motif stipulé : %s",
+                        updated.getReference(),
+                        demande.getArticle().getDesignation(),
+                        motifRejet
+                );
+
+                // Déclenche une alerte ciblée liée à cet article pour remonter l'anomalie
+                alerteService.creerAlerte(demande.getArticle(), messageRejet);
+            }
+        } catch (Exception e) {
+            log.error("⚠️ Échec d'émission de la notification de rejet de demande: {}", e.getMessage());
+        }
 
         return convertToDTO(updated);
     }
@@ -263,9 +321,8 @@ public class DemandeMaterielService {
                 consomationSaved.getId(), article.getDesignation(), demande.getQuantiteDemandee());
     }
 
-    /**
-     * 📋 Récupérer demandes en attente (Pour Gestionnaire)
-     */
+    // --- Reste du service (Méthodes de listage et DTO conservées à l'identique) ---
+
     public List<DemandeMaterielDTO> getDemandesEnAttente() {
         log.info("📋 Récupération demandes en attente");
         List<DemandeMateriel> demandes = demandeRepository.findDemandesEnAttente();
@@ -275,9 +332,6 @@ public class DemandeMaterielService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 📋 Récupérer demandes validées gestionnaire (Pour Admin)
-     */
     public List<DemandeMaterielDTO> getDemandesValideeGestionnaire() {
         log.info("📋 Récupération demandes validées gestionnaire");
         List<DemandeMateriel> demandes = demandeRepository.findDemandesValideeGestionnaire();
@@ -287,9 +341,6 @@ public class DemandeMaterielService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 📋 Récupérer demandes par utilisateur
-     */
     public List<DemandeMaterielDTO> getDemanduesUtilisateur(Long utilisateurId) {
         log.info("📋 Récupération demandes utilisateur: {}", utilisateurId);
         List<DemandeMateriel> demandes = demandeRepository.findByUtilisateurDemandeurId(utilisateurId);
@@ -299,14 +350,10 @@ public class DemandeMaterielService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 🔄 Convertir Entity en DTO
-     */
     private DemandeMaterielDTO convertToDTO(DemandeMateriel demande) {
         if (demande == null) return null;
 
         return DemandeMaterielDTO.builder()
-                // --- Informations de la Demande ---
                 .id(demande.getId())
                 .reference(demande.getReference())
                 .quantiteDemandee(demande.getQuantiteDemandee())
@@ -315,28 +362,19 @@ public class DemandeMaterielService {
                 .justification(demande.getJustification())
                 .referenceTicket(demande.getReferenceTicket())
                 .motifRejet(demande.getMotifRejet())
-
-                // --- Chronologie (Dates) ---
                 .dateCreation(demande.getDateCreation())
                 .dateModification(demande.getDateModification())
                 .dateConsommation(demande.getDateConsommation())
                 .dateValidationGestionnaire(demande.getDateValidationGestionnaire())
                 .dateValidationAdmin(demande.getDateValidationAdmin())
-
-                // --- Informations Article (Sécurisé contre le null) ---
                 .articleId(demande.getArticle() != null ? demande.getArticle().getId() : null)
                 .articleReference(demande.getArticle() != null ? demande.getArticle().getReference() : null)
                 .articleDesignation(demande.getArticle() != null ? demande.getArticle().getDesignation() : "Article inconnu")
-                // Note : Si ton entité 'Article' possède ces champs, décommmente-les et adapte les getters :
-                 .articleTypeArticle(demande.getArticle() != null && demande.getArticle().getTypeArticle() != null ? demande.getArticle().getTypeArticle().name() : "N/A")
-                 .articleCategorie(demande.getArticle() != null ? demande.getArticle().getCategorie() : "N/A")
+                .articleTypeArticle(demande.getArticle() != null && demande.getArticle().getTypeArticle() != null ? demande.getArticle().getTypeArticle().name() : "N/A")
+                .articleCategorie(demande.getArticle() != null ? demande.getArticle().getCategorie() : "N/A")
                 .articleQuantiteEnStock(demande.getArticle() != null ? demande.getArticle().getQuantiteEnStock() : 0)
-                 .articleSeuilMinimum(demande.getArticle() != null ? demande.getArticle().getSeuilMinimum() : 0)
-                 .articlePrixUnitaire(demande.getArticle() != null ? demande.getArticle().getPrixUnitaire() : java.math.BigDecimal.ZERO)
-
-                // --- Informations Intervenants ---
-
-                // 🔥 1. DEMANDEUR (Sous-DTO : DemandeReponseDTO)
+                .articleSeuilMinimum(demande.getArticle() != null ? demande.getArticle().getSeuilMinimum() : 0)
+                .articlePrixUnitaire(demande.getArticle() != null ? demande.getArticle().getPrixUnitaire() : java.math.BigDecimal.ZERO)
                 .utilisateurDemandeur(
                         demande.getUtilisateurDemandeur() != null ?
                                 DemandeReponseDTO.builder()
@@ -346,21 +384,16 @@ public class DemandeMaterielService {
                                         .email(demande.getUtilisateurDemandeur().getEmail())
                                         .telephone(demande.getUtilisateurDemandeur().getTelephone())
                                         .departement(demande.getUtilisateurDemandeur().getDepartement())
-                                        .roleDemande(demande.getUtilisateurDemandeur().getRole()) // Assigne le rôle de l'entité
+                                        .roleDemande(demande.getUtilisateurDemandeur().getRole())
                                         .build()
                                 : null
                 )
-
-                // 🔥 2. GESTIONNAIRE (Champs mis à plat comme définis dans ton DTO)
                 .utilisateurGestionnaireId(demande.getUtilisateurGestionnaire() != null ? demande.getUtilisateurGestionnaire().getId() : null)
                 .utilisateurGestionnaireNom(demande.getUtilisateurGestionnaire() != null ? demande.getUtilisateurGestionnaire().getNom() : null)
                 .utilisateurGestionnairePrenom(demande.getUtilisateurGestionnaire() != null ? demande.getUtilisateurGestionnaire().getPrenom() : null)
-
-                // 🔥 3. ADMIN (Champs mis à plat comme définis dans ton DTO)
                 .utilisateurAdminId(demande.getUtilisateurAdmin() != null ? demande.getUtilisateurAdmin().getId() : null)
                 .utilisateurAdminNom(demande.getUtilisateurAdmin() != null ? demande.getUtilisateurAdmin().getNom() : null)
                 .utilisateurAdminPrenom(demande.getUtilisateurAdmin() != null ? demande.getUtilisateurAdmin().getPrenom() : null)
-
                 .build();
     }
 }

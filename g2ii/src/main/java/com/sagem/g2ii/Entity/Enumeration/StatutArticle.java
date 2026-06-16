@@ -10,6 +10,7 @@ public enum StatutArticle {
     OBSOLETE("Obsolète"),
     RUPTURE("Rupture de stock");
 
+
     private final String label;
 
     StatutArticle(String label) {

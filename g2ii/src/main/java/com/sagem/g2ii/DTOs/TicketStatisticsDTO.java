@@ -10,10 +10,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TicketStatisticsDTO {
-    private Long totalTickets;
-    private Long ticketsOuverts;
-    private Long ticketsEnCours;
-    private Long ticketsResolus;
-    private Long ticketsClotures;
-    private Long slaDepassesCount;
+    private long totalTickets;
+    private long ticketsOuverts;
+    private long ticketsEnCours;
+    private long ticketsResolus;
+    private long ticketsClotures;
+    private long slaDepassesCount;
 }
