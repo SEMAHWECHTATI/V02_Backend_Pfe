@@ -1,11 +1,17 @@
 package com.sagem.g2ii.Service;
 
+import com.sagem.g2ii.Entity.Authentification.Utilisateur;
+import com.sagem.g2ii.Entity.Intervention.Ticket;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async; // 🛠️ Pour l'envoi en tâche de fond
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class EmailService {
@@ -49,7 +55,6 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    // 💡 Correction légère du nom de la méthode pour plus de propreté
     public void evoymailrinitialisermotdepassse(String emailDestinataire, String token) throws MailException {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(emailDestinataire);
@@ -89,5 +94,83 @@ public class EmailService {
                 + "Moteur de Notification Automatisée Sagemcom");
 
         mailSender.send(message);
+    }
+
+    /**
+     * Alerte pour le retard de Prise en Charge (Envoyé aux membres ou responsable du groupe)
+     */
+    public void envoyerAlerteDepassementPriseEnCharge(Ticket ticket) {
+        if (ticket.getGroupeAssigne() == null) {
+            System.out.println("⚠️ Impossible d'envoyer l'alerte : Aucun groupe assigné au ticket " + ticket.getReference());
+            return;
+        }
+
+        // 1. Récupérer la liste des utilisateurs (techniciens) du groupe
+        List<Utilisateur> techniciens = ticket.getGroupeAssigne().getUtilisateurs();
+
+        if (techniciens == null || techniciens.isEmpty()) {
+            System.out.println("⚠️ Aucun technicien trouvé dans le groupe " + ticket.getGroupeAssigne().getNomGroupes());
+            return;
+        }
+
+        String sujet = "⚠️ RAPPEL SLA : Prise en charge dépassée - Ticket " + ticket.getReference();
+
+        String contenuHtml = "⚠️ <b>Alerte Dépassement SLA</b><br/><br/>"
+                + "Le ticket suivant n'a pas été pris en charge dans les délais impartis par votre groupe (<b>"
+                + ticket.getGroupeAssigne().getNomGroupes() + "</b>) :<br/>"
+                + "• <b>Référence :</b> " + ticket.getReference() + "<br/>"
+                + "• <b>Titre :</b> " + ticket.getTitre() + "<br/>"
+                + "• <b>Priorité :</b> " + ticket.getPriorite() + "<br/>"
+                + "• <b>Date de création :</b> " + ticket.getDate() + "<br/><br/>"
+                + "<i>Veuillez prendre en charge ce ticket de toute urgence.</i>";
+
+        // 2. Parcourir tous les techniciens du groupe pour leur envoyer l'e-mail individuellement
+        for (Utilisateur technicien : techniciens) {
+            // Si votre projet accepte le isEmpty(), cette ligne est parfaitement valide :
+            if (technicien.getEmail() != null && !technicien.getEmail().trim().isEmpty()) {
+                envoyerEmailHtml(technicien.getEmail(), sujet, contenuHtml);
+                System.out.println("   ✉️ Email de retard envoyé au technicien : " + technicien.getEmail());
+            }
+        }
+    }
+
+    /**
+     * Alerte pour le retard de Résolution (Envoyé au technicien assigné ou au manager)
+     */
+    public void envoyerAlerteDepassementResolution(Ticket ticket) {
+        String emailDestinataire = (ticket.getTechnicienAssigne() != null)
+                ? ticket.getTechnicienAssigne().getEmail()
+                : "manager-incident@sagem.com";
+
+        String sujet = "🚨 ALERTE CRITIQUE SLA : Résolution hors délais - Ticket " + ticket.getReference();
+
+        String contenuHtml = "🚨 <b>Dépassement du Temps de Résolution</b><br/><br/>"
+                + "Le délai de résolution maximal prévu par le contrat SLA a expiré :<br/>"
+                + "• <b>Référence :</b> " + ticket.getReference() + "<br/>"
+                + "• <b>Titre :</b> " + ticket.getTitre() + "<br/>"
+                + "• <b>Technicien en charge :</b> " + (ticket.getTechnicienAssigne() != null ? ticket.getTechnicienAssigne().getEmail() : "Aucun") + "<br/>"
+                + "• <b>Temps max alloué :</b> " + ticket.getSlaAssigne().getDelaiResolutionHeure() + " heures<br/><br/>"
+                + "<i>Merci de procéder immédiatement à la résolution ou de documenter le retard.</i>";
+
+        envoyerEmailHtml(emailDestinataire, sujet, contenuHtml);
+    }
+
+    /**
+     * Méthode utilitaire privée pour l'envoi technique de messages HTML
+     */
+    private void envoyerEmailHtml(String to, String subject, String htmlContent) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true); // true = active le rendu HTML
+            helper.setFrom("g2ii-system@sagem.com");
+
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("❌ Impossible d'envoyer l'e-mail SLA à " + to + " : " + e.getMessage());
+        }
     }
 }
