@@ -183,6 +183,26 @@ public class TicketController {
     }
 
     /**
+     * 🔄 10° Réouvrir un ticket résolu
+     */
+    @PutMapping("/{idTicket}/reouvrir")
+    public ResponseEntity<?> reouvrirTicket(
+            @PathVariable Long idTicket,
+            @RequestParam Long idUtilisateur) {
+        try {
+            // On appelle une nouvelle méthode du service dédiée à la réouverture
+            Ticket ticket = ticketService.reouvrirTicket(idTicket, idUtilisateur);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Ticket réouvert avec succès",
+                    "ticket", ticket
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * 9️⃣ Supprimer un ticket
      */
     @DeleteMapping("/{id}")

@@ -7,7 +7,7 @@ services:
   # ============================================================================
   ma-base-db:
     image: postgres:17
-    container_name: Base_donnee_pfe_2026
+    container_name: local_Base_donnee_pfe_2026
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -28,12 +28,12 @@ services:
   # ============================================================================
   backend-app:
     build:
-      context: "D:\\Test pfe 2026\\g2ii" # 👈 Chemin absolu de ton projet Backend
+      context: "D:/Test pfe 2026/g2ii" # 💡 Remplacement des \ par des / pour Docker
       dockerfile: Dockerfile
     image: g2ii-backend-app:latest
-    container_name: g2ii-app-container
+    container_name: local_g2ii-app-container
     ports:
-      - "8082:8082"
+      - "8070:8070" # 🎯 Changé en 8070 pour correspondre à vos tests locaux Angular
     depends_on:
       ma-base-db:
         condition: service_healthy
@@ -43,7 +43,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: admin
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
-      SERVER_PORT: 8082
+      SERVER_PORT: 8070 # 🎯 Changé en 8070 pour que Spring Boot écoute sur le bon port
     restart: on-failure
 
   # ============================================================================
@@ -51,25 +51,25 @@ services:
   # ============================================================================
   frontend-app:
     build:
-      context: "D:\\ProjetPFE2026Sagemcom\\ArchitecturePfe\\frontend\\apppfe" # 👈 Chemin absolu de ton projet Frontend
+      context: "D:/ProjetPFE2026Sagemcom/ArchitecturePfe/frontend/apppfe" # 💡 Remplacement des \ par des /
       dockerfile: Dockerfile
     image: g2ii-frontend-app:latest
-    container_name: g2ii-frontend-container
+    container_name: local_g2ii-frontend-container
     ports:
-      - "80:80"
+      - "80:80" # Accessible sur http://localhost
     depends_on:
       - backend-app
     restart: always
 
   # ============================================================================
-  # 4. Interface d'administration de la BDD
+  # 4. Interface d'administration de la BDD (Optionnel mais pratique)
   # ============================================================================
   pgadmin:
     image: dpage/pgadmin4
-    container_name: pgadmin-container
+    container_name: local_pgadmin-container
     restart: always
     ports:
-      - "5050:80"
+      - "5050:80" # Accessible sur http://localhost:5050
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin

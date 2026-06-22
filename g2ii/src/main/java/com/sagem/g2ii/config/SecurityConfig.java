@@ -66,6 +66,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/tickets/**").permitAll()
                         .requestMatchers("/api/stocks/dashboard-finance/**").permitAll()
                         .requestMatchers("/api/dashboard/**").permitAll()
+                        .requestMatchers("/api/slas/**").permitAll()
 
                         // ADMIN / ROLES SPECIFIQUES
                         .requestMatchers("/api/categories/**")

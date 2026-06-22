@@ -1,7 +1,6 @@
 package com.sagem.g2ii.Controller;
 import com.sagem.g2ii.Entity.Inventaire.ConsommationPiece;
 import com.sagem.g2ii.Service.ConsommationPieceServiceImpl;
-import com.sagem.g2ii.Service.IConsommationPieceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

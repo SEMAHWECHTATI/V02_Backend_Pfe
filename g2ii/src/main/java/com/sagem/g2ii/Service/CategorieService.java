@@ -123,10 +123,11 @@ public class CategorieService {
 
         System.out.println("📋 Création: " + nomCategorie);
 
-        // ✅ VALIDATION: Vérifier si la catégorie existe déjà
-        Optional<Categorie> existante = categorieRepository.findByType(type);
+        // ✅ VALIDATION CORRIGÉE : On récupère une liste maintenant
+        List<Categorie> existantes = categorieRepository.findByType(type);
 
-        if (existante.isPresent()) {
+        // 🎯 Si la liste n'est pas vide, la catégorie existe déjà, on arrête là
+        if (!existantes.isEmpty()) {
             System.out.println("   ℹ️ Catégorie déjà existante - ignorée");
             return;
         }
@@ -187,7 +188,6 @@ public class CategorieService {
         System.out.println("   ✅ Catégorie créée (Groupe: " + groupeResponsable.getNomGroupes() + ")");
         System.out.println("      └─ 4 SLA créés (Basse, Moyenne, Haute, Critique)");
     }
-
     /**
      * ✅ Récupérer ou créer un groupe s'il n'existe pas
      */
@@ -244,11 +244,17 @@ public class CategorieService {
      */
     public Categorie getCategorieParType(TypeTicket type) {
         System.out.println("🔎 [RÉCUPÉRER CATÉGORIE] Type: " + type);
-        return categorieRepository.findByType(type)
-                .orElseThrow(() -> {
-                    System.err.println("   ❌ Aucune catégorie trouvée pour ce type");
-                    return new RuntimeException("Catégorie non trouvée pour type: " + type);
-                });
+
+        List<Categorie> categories = categorieRepository.findByType(type);
+
+        // 🎯 Si la liste est vide, on lève l'exception
+        if (categories.isEmpty()) {
+            System.err.println("   ❌ Aucune catégorie trouvée pour ce type");
+            throw new RuntimeException("Catégorie non trouvée pour type: " + type);
+        }
+
+        // 🎯 S'il y a des résultats (un ou plusieurs doublons), on retourne le premier trouvé
+        return categories.get(0);
     }
 
     /**
@@ -338,6 +344,7 @@ public class CategorieService {
      * 🔍 Vérifier si une catégorie existe par type
      */
     public boolean existeParType(TypeTicket type) {
-        return categorieRepository.findByType(type).isPresent();
+        // 🎯 Sur une liste, on vérifie simplement qu'elle n'est pas vide
+        return !categorieRepository.findByType(type).isEmpty();
     }
 }

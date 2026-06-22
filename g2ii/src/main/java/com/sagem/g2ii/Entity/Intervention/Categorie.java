@@ -38,8 +38,9 @@ public class Categorie {
     @JoinColumn(name = "id_groupe_responsable", nullable = false)
     private Groupe groupeResponsable;
 
-    // ✅ Une catégorie a PLUSIEURS SLA
+    // ... reste du code intact ...
     @OneToMany(mappedBy = "categorie", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties("categorie") // 👈 AJOUTER ICI pour bloquer Categorie -> SLA -> Categorie
     private List<SLA> slas;
 
     // ✅ Une catégorie a PLUSIEURS tickets

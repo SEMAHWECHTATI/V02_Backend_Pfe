@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Entity.Intervention;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import jakarta.persistence.*;
 import lombok.*;
@@ -32,8 +33,10 @@ public class HistoriqueTicket {
     @Column(nullable = false)
     private LocalDateTime date = LocalDateTime.now();
 
+    // ... reste du code intact ...
     @ManyToOne
     @JoinColumn(name = "id_ticket", nullable = false)
+    @JsonIgnoreProperties({"historiqueTickets", "notes", "pieceJointes"}) // 👈 AJOUTER ICI
     private Ticket ticket;
 
     @ManyToOne

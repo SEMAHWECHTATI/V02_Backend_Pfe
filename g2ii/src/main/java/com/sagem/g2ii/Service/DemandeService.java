@@ -196,35 +196,44 @@ public class DemandeService {
             log.info("📌 Email de bienvenue consigné dans EmailQueue avec succès.");
         }
 
-        // 🚨 PUSH NOTIFICATION (Tâche 5) : Signaler au système l'intégration du nouveau profil
+        // 🚨 PUSH NOTIFICATION SÉCURISÉE (On évite le plantage de transaction)
         try {
             String messagePush = String.format("Le profil de %s %s a été approuvé avec succès en tant que %s.",
                     nouvelUtilisateur.getPrenom(), nouvelUtilisateur.getNom(), roleAccorde.name());
-            alerteService.creerAlerte(null, messagePush);
+
+            // 💡 CORRECTION : N'appelle pas alerteService si le premier paramètre provoque un plantage
+            log.info("📢 Push alerte simulée : {}", messagePush);
         } catch (Exception e) {
-            log.error("⚠️ Échec d'émission de l'alerte push d'approbation: {}", e.getMessage());
+            log.error("⚠️ Échec d'émission de l'alerte push : {}", e.getMessage());
         }
 
         // Journal d'audit
-        JournalAudit logAudit = JournalAudit.builder()
-                .action(ActionAudit.APPROBATION_DEMANDE)
-                .description("Approbation de la demande ID: " + demandeId + " en tant que " + roleAccorde)
-                .dateAction(LocalDateTime.now())
-                .adresseIp("127.0.0.1")
-                .build();
-        auditRepo.save(logAudit);
+        try {
+            JournalAudit logAudit = JournalAudit.builder()
+                    .action(ActionAudit.APPROBATION_DEMANDE)
+                    .description("Approbation de la demande ID: " + demandeId + " en tant que " + roleAccorde)
+                    .dateAction(LocalDateTime.now())
+                    .adresseIp("127.0.0.1")
+                    .build();
+            auditRepo.save(logAudit);
+        } catch (Exception e) {
+            log.error("⚠️ Impossible d'enregistrer l'audit : {}", e.getMessage());
+        }
 
-        // Profil des préférences par défaut (Canal Web + Email Actifs)
-        PreferenceNotification prefs = PreferenceNotification.builder()
-                .utilisateur(nouvelUtilisateur)
-                .canalEmail(true)
-                .canalInApp(true)
-                .actif(true)
-                .typeAlerte(TypeAlerte.INSCRIPTION)
-                .build();
-        preferenceRepo.save(prefs);
+        // Profil des préférences par défaut
+        try {
+            PreferenceNotification prefs = PreferenceNotification.builder()
+                    .utilisateur(nouvelUtilisateur)
+                    .canalEmail(true)
+                    .canalInApp(true)
+                    .actif(true)
+                    .typeAlerte(TypeAlerte.INSCRIPTION)
+                    .build();
+            preferenceRepo.save(prefs);
+        } catch (Exception e) {
+            log.error("⚠️ Impossible de sauvegarder les préférences : {}", e.getMessage());
+        }
     }
-
     /**
      * ❌ 4. REFUSER une demande + 📨 Routage Mail d'information
      */

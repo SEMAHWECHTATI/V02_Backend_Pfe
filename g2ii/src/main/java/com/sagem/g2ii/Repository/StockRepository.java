@@ -18,6 +18,8 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
     @Query("SELECT s FROM Stock s WHERE s.quantiteEnStock <= s.quantiteMinimum")
     List<Stock> findStockFaible();
 
+
+
     // 💰 Calcul financier : Somme de (quantiteEnStock * prixUnitaire)
     // Casté en double ou renvoyé en BigDecimal pour l'API
     @Query("SELECT SUM(s.quantiteEnStock * s.prixUnitaire) FROM Stock s")

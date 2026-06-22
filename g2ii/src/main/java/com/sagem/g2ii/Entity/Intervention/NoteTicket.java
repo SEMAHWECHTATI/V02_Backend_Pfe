@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Entity.Intervention;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import com.sagem.g2ii.Entity.Enumeration.TypeNote;
 import jakarta.persistence.*;
@@ -29,8 +30,10 @@ public class NoteTicket {
     @Column(nullable = false)
     private LocalDate date = LocalDate.now();
 
+    // ... reste du code intact ...
     @ManyToOne
     @JoinColumn(name = "id_ticket", nullable = false)
+    @JsonIgnoreProperties({"notes", "historiqueTickets", "pieceJointes"}) // 👈 AJOUTER ICI
     private Ticket ticket;
 
     @ManyToOne

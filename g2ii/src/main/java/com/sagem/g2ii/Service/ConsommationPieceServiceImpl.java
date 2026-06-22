@@ -2,13 +2,17 @@ package com.sagem.g2ii.Service;
 
 import com.sagem.g2ii.Entity.Inventaire.Article;
 import com.sagem.g2ii.Entity.Inventaire.ConsommationPiece;
+import com.sagem.g2ii.Entity.Inventaire.Stock;
 import com.sagem.g2ii.Repository.ArticleRepository;
 import com.sagem.g2ii.Repository.ConsommationPieceRepository;
+import com.sagem.g2ii.Repository.StockRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -20,38 +24,69 @@ public class ConsommationPieceServiceImpl implements IConsommationPieceService {
     private final ConsommationPieceRepository consommationRepository;
     private final ArticleRepository articleRepository;
     private final AlerteService alerteService; // 🛠️ Injection du service d'alerte (Tâche 5)
+    private final StockRepository stockRepository;
 
     @Override
+    @Transactional // 🌟 TRÈS IMPORTANT : Annule tout en base de données si une étape plante
     public ConsommationPiece enregistrerConsommation(ConsommationPiece consommation) {
-        log.info("🔴 Enregistrement d'une consommation manuelle/ticket pour l'article ID: {}", consommation.getArticle().getId());
-
-        // 1. Récupérer l'article concerné
-        Article article = articleRepository.findById(consommation.getArticle().getId())
-                .orElseThrow(() -> new EntityNotFoundException("Article non trouvé avec l'ID : " + consommation.getArticle().getId()));
-
-        // 2. Vérifier si le stock est suffisant
-        if (article.getQuantiteEnStock() < consommation.getQuantite()) {
-            log.error("❌ Stock insuffisant pour la référence : {}. Disponible: {}, Demandé: {}",
-                    article.getReference(), article.getQuantiteEnStock(), consommation.getQuantite());
-            throw new IllegalArgumentException("Stock insuffisant pour la référence : " + article.getReference()
-                    + " (Demandé: " + consommation.getQuantite() + ", Disponible: " + article.getQuantiteEnStock() + ")");
+        if (consommation.getArticle() == null || consommation.getArticle().getId() == null) {
+            throw new IllegalArgumentException("L'identifiant de l'article est obligatoire pour enregistrer une consommation.");
         }
 
-        // 3. Déduire la quantité du stock de l'article
-        int ancienStock = article.getQuantiteEnStock();
-        int nouveauStock = ancienStock - consommation.getQuantite();
-        article.setQuantiteEnStock(nouveauStock);
-        articleRepository.save(article);
+        Long articleId = consommation.getArticle().getId();
+        log.info("🔴 Enregistrement d'une consommation pour l'article ID: {}", articleId);
 
-        log.info("📦 Stock de l'article '{}' mis à jour : {} ➔ {}", article.getDesignation(), ancienStock, nouveauStock);
+        // 1. Récupérer la ligne de stock liée à l'article concerné
+        Stock stock = stockRepository.findByArticleId(articleId)
+                .orElseThrow(() -> new EntityNotFoundException("Aucune ligne de stock trouvée pour l'article ID : " + articleId));
 
-        // 4. Associer l'article complet et sauvegarder la consommation
+        // Récupération de l'entité Article rattachée au stock pour les alertes et la sauvegarde
+        Article article = stock.getArticle();
+        if (article == null) {
+            throw new EntityNotFoundException("L'entité Article est absente de la ligne de stock.");
+        }
+
+        // 2. Vérifier si la quantité en stock est suffisante
+        int quantiteDemandee = consommation.getQuantite();
+        int ancienStock = stock.getQuantiteEnStock();
+
+        if (ancienStock < quantiteDemandee) {
+            log.error("❌ Stock insuffisant pour la référence : {}. Disponible dans le Stock: {}, Demandé: {}",
+                    article.getReference(), ancienStock, quantiteDemandee);
+            throw new IllegalArgumentException("Stock insuffisant pour la référence : " + article.getReference()
+                    + " (Demandé: " + quantiteDemandee + ", Disponible dans le Stock: " + ancienStock + ")");
+        }
+
+        // 3. Déduire la quantité directement de l'entité STOCK
+        int nouveauStock = ancienStock - quantiteDemandee;
+        stock.setQuantiteEnStock(nouveauStock);
+
+
+
+        stockRepository.save(stock); // Sauvegarde de la table stock
+        log.info("📦 Table Stock mise à jour pour '{}' : {} ➔ {}", article.getDesignation(), ancienStock, nouveauStock);
+
+        // Synchronisation de la quantité de l'article si votre colonne existe encore sur la table article (optionnel mais recommandé)
+        try {
+            article.setQuantiteEnStock(nouveauStock);
+            articleRepository.save(article);
+        } catch (Exception e) {
+            log.warn("⚠️ Note: Impossible de synchroniser la quantité directement sur la table Article (Peut être normal si géré uniquement par le Stock): {}", e.getMessage());
+        }
+
+        // 4. Associer l'article complet et sauvegarder la consommation locale
         consommation.setArticle(article);
+        if (consommation.getDateConsommation() == null) {
+            consommation.setDateConsommation(LocalDateTime.now());
+        }
         ConsommationPiece sauvegarde = consommationRepository.save(consommation);
 
-        // 🚨 ALERTES AUTOMATIQUES (Tâche 5) : Détection de seuil bas ou rupture immédiate
+        // 🚨 ALERTES AUTOMATIQUES : Détection basée sur les seuils configurés dans le stock ou l'article
         try {
-            if (nouveauStock <= article.getSeuilMinimum()) {
+            // Utilisation du seuil minimum défini (porté par le stock ou par l'article)
+            int seuilMinimum = stock.getQuantiteMinimum() > 0 ? stock.getQuantiteMinimum() : article.getSeuilMinimum();
+
+            if (nouveauStock <= seuilMinimum) {
                 String messageAlerte = String.format(
                         "Alerte de stock sur l'article '%s' (Réf: %s) suite à une consommation sur le ticket '%s'. Quantité restante : %d unités.",
                         article.getDesignation(),
@@ -60,12 +95,12 @@ public class ConsommationPieceServiceImpl implements IConsommationPieceService {
                         nouveauStock
                 );
 
-                // AlerteService se chargera d'analyser la sévérité (CRITIQUE si nouveauStock == 0)
-                // et d'envoyer l'alerte sur Angular (WebSockets) et par Mail aux personnes concernées.
+                // Envoi de l'alerte temps réel
                 alerteService.creerAlerte(article, messageAlerte);
+                log.info("📢 Alerte de stock bas émise pour l'article '{}' (Seuil: {})", article.getDesignation(), seuilMinimum);
             }
         } catch (Exception e) {
-            // Bloc sécurisé : une erreur d'envoi d'alerte ne doit jamais annuler l'enregistrement de la pièce
+            // Bloc sécurisé : une erreur d'envoi d'alerte ne doit jamais annuler la transaction principale
             log.error("⚠️ Impossible d'émettre l'alerte de stock après consommation: {}", e.getMessage());
         }
 

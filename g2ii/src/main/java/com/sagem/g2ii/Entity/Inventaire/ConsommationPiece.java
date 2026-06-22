@@ -32,18 +32,16 @@ public class ConsommationPiece {
     @Column(nullable = false, updatable = false)
     private LocalDateTime dateConsommation;
 
-    // Jointure ManyToOne vers l'Article
-    @ManyToOne(fetch = FetchType.LAZY)
+    // Modifiez FetchType.LAZY en FetchType.EAGER
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "article_id", nullable = false)
-    // ⬇️ AJOUTE "hibernateLazyInitializer" et "handler" dans la liste :
-    @JsonIgnoreProperties({"consommations", "stocks", "tickets", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"consommations", "stocks", "tickets", "fournisseur", "localisation", "alertes", "equipements"})
     private Article article;
 
-    // Jointure ManyToOne vers l'Utilisateur
-    @ManyToOne(fetch = FetchType.LAZY)
+    // Faites de même pour le responsable
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "responsable_id", nullable = false)
-    // ⬇️ AJOUTE "hibernateLazyInitializer" et "handler" ici aussi :
-    @JsonIgnoreProperties({"password", "roles", "tickets", "consommations", "hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"password", "roles", "tickets", "consommations"})
     private Utilisateur responsable;
 
     @PrePersist

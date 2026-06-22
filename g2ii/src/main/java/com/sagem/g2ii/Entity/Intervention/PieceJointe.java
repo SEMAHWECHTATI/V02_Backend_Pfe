@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Entity.Intervention;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import jakarta.persistence.*;
 import lombok.*;
@@ -37,8 +38,10 @@ public class PieceJointe {
 
     // ===== RELATIONS =====
 
+    // ... reste du code intact ...
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_ticket", nullable = false)
+    @JsonIgnoreProperties({"pieceJointes", "notes", "historiqueTickets"}) // 👈 AJOUTER ICI
     private Ticket ticket;
 
     // ✅ AJOUTER ID UTILISATEUR

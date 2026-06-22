@@ -26,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * ✅ Service complet et corrigé pour la gestion des Tickets
@@ -290,6 +291,8 @@ public class TicketService {
         return ticketUpdated;
     }
 
+
+
     // ============================================================================
     // 5️⃣ CLÔTURER UN TICKET (Resolu → Cloture)
     // ============================================================================
@@ -345,6 +348,21 @@ public class TicketService {
         return ticketUpdated;
     }
 
+    public Ticket reouvrirTicket(Long idTicket, Long idUtilisateur) {
+        Ticket ticket = ticketRepository.findById(idTicket)
+                .orElseThrow(() -> new RuntimeException("Ticket introuvable"));
+
+        // Vérification stricte de l'état pour la réouverture
+        if (ticket.getStatut() != StatutTicket.Resolu) {
+            throw new RuntimeException("Seul un ticket à l'état 'Resolu' peut être réouvert.");
+        }
+
+        // Changement d'état
+        ticket.setStatut(StatutTicket.En_Cours);
+
+        // Optionnel : tu peux ici enregistrer qui a réouvert le ticket ou vider la note de résolution précédente
+        return ticketRepository.save(ticket);
+    }
     // ============================================================================
     // 6️⃣ CALCULER LES SLA À LA RÉSOLUTION
     // ============================================================================
@@ -427,23 +445,28 @@ public class TicketService {
      * @return SLA applicable ou null si aucun SLA ne correspond
      */
     public SLA obtenirSLA(Categorie categorie, Priorite priorite) {
-        System.out.println("🔍 [OBTENIR SLA] Recherche pour: " + categorie.getNomCategorie() + " | Priorité: " + priorite);
-
-        SLA slaApplicable = slaRepository.findByCategorieAndPriorite(categorie, priorite);
-
-        if (slaApplicable != null) {
-            System.out.println("   ✅ SLA trouvé: " + slaApplicable.getNomSLA() + " (ID: " + slaApplicable.getIdSLA() + ")");
-        } else {
-            System.out.println("   ❌ Aucun SLA trouvé!");
-            System.out.println("      Catégorie: " + categorie.getNomCategorie() + " (ID: " + categorie.getIdCategorie().shortValue() + ")");
-            System.out.println("      Priorité: " + priorite);
-            System.out.println("      → Vérifiez que la table SLA contient une ligne correspondant à cette combinaison");
+        if (categorie == null || priorite == null) {
+            System.out.println("   ❌ Recherche SLA avortée : Catégorie ou Priorité nulle.");
+            return null;
         }
 
-        return slaApplicable;
-    }
+        System.out.println("🔍 [OBTENIR SLA] Recherche pour: " + categorie.getNomCategorie() + " | Priorité: " + priorite);
 
-    // ============================================================================
+        // ✅ Utilisation de l'Optional pour éviter les NullPointerException de compilation
+        Optional<SLA> slaApplicableOpt = slaRepository.findByCategorieAndPriorite(categorie, priorite);
+
+        if (slaApplicableOpt.isPresent()) {
+            SLA slaApplicable = slaApplicableOpt.get();
+            System.out.println("   ✅ SLA trouvé: " + slaApplicable.getNomSLA() + " (ID: " + slaApplicable.getIdSLA() + ")");
+            return slaApplicable;
+        } else {
+            System.out.println("   ❌ Aucun SLA trouvé!");
+            System.out.println("      Catégorie: " + categorie.getNomCategorie() + " (ID: " + categorie.getIdCategorie() + ")"); // 💡 Retrait du shortValue()
+            System.out.println("      Priorité: " + priorite);
+            System.out.println("      → Vérifiez que la table SLA contient une ligne correspondant à cette combinaison");
+            return null;
+        }
+    }    // ============================================================================
     // 8️⃣ LISTER LES TICKETS
     // ============================================================================
 
@@ -567,17 +590,16 @@ public class TicketService {
     public SlaStatisticsDTO obtenirStatistiquesSLA() {
         System.out.println("📊 [STATISTIQUES SLA] Génération des KPI pour le Dashboard");
 
-        // ✅ Compter les tickets avec SLA assigné
+        // ✅ Périmètre de base : Uniquement les tickets qualifiés avec un SLA actif
         long total = ticketRepository.countBySlaAssigneIsNotNull();
         System.out.println("   Tickets avec SLA: " + total);
 
         if (total == 0) {
             System.out.println("   ⚠️ Aucun ticket avec SLA - retour des statistiques vides");
-            System.out.println("   → Assurez-vous que les tickets ont un SLA assigné lors de leur création");
             return new SlaStatisticsDTO();
         }
 
-        // ✅ Compter les tickets conforme/non-conforme
+        // ✅ Compter les tickets conforme/non-conforme globaux (Basé sur le même périmètre)
         long respectes = ticketRepository.countBySlaAssigneIsNotNullAndSlaRespecte(true);
         long depasses = ticketRepository.countBySlaAssigneIsNotNullAndSlaRespecte(false);
         double tauxGlobal = ((double) respectes / total) * 100.0;
@@ -586,21 +608,21 @@ public class TicketService {
         System.out.println("   SLA Dépassés: " + depasses);
         System.out.println("   Taux de réussite global: " + String.format("%.2f", tauxGlobal) + "%");
 
-        // ✅ Statistiques Prise en Charge
-        long okPriseEnCharge = ticketRepository.countBySlaPriseEnChargeRespecte(true);
-        long koPriseEnCharge = ticketRepository.countBySlaPriseEnChargeRespecte(false);
+        // ✅ CORRIGÉ: Statistiques Prise en Charge alignées sur les tickets avec SLA
+        long okPriseEnCharge = ticketRepository.countBySlaAssigneIsNotNullAndSlaPriseEnChargeRespecte(true);
+        long koPriseEnCharge = ticketRepository.countBySlaAssigneIsNotNullAndSlaPriseEnChargeRespecte(false);
 
         System.out.println("   Prise en charge OK: " + okPriseEnCharge);
         System.out.println("   Prise en charge KO: " + koPriseEnCharge);
 
-        // ✅ Statistiques Résolution
-        long okResolution = ticketRepository.countBySlaResolutionRespecte(true);
-        long koResolution = ticketRepository.countBySlaResolutionRespecte(false);
+        // ✅ CORRIGÉ: Statistiques Résolution alignées sur les tickets avec SLA
+        long okResolution = ticketRepository.countBySlaAssigneIsNotNullAndSlaResolutionRespecte(true);
+        long koResolution = ticketRepository.countBySlaAssigneIsNotNullAndSlaResolutionRespecte(false);
 
         System.out.println("   Résolution OK: " + okResolution);
         System.out.println("   Résolution KO: " + koResolution);
 
-        // ✅ Répartition par priorité
+        // ✅ Répartition par priorité (Déjà corrigé pour le type Number)
         Map<String, Double> repartitionPriorite = new HashMap<>();
         List<Object[]> resultatsParPriorite = ticketRepository.getTauxReussiteParPriorite();
 
@@ -608,13 +630,15 @@ public class TicketService {
         for (Object[] row : resultatsParPriorite) {
             if (row[0] != null) {
                 String priorite = row[0].toString();
-                Double taux = (Double) row[1];
+                Double taux = 0.0;
+                if (row[1] != null) {
+                    taux = ((Number) row[1]).doubleValue();
+                }
                 repartitionPriorite.put(priorite, taux);
                 System.out.println("      - " + priorite + ": " + String.format("%.2f", taux) + "%");
             }
         }
 
-        // ✅ CONSTRUIRE ET RETOURNER LE DTO
         return SlaStatisticsDTO.builder()
                 .totalTicketsAvecSla(total)
                 .slaGlobauxRespectes(respectes)

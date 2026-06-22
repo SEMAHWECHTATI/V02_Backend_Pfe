@@ -2,6 +2,7 @@ package com.sagem.g2ii.Repository;
 
 import com.sagem.g2ii.Entity.Enumeration.Priorite;
 import com.sagem.g2ii.Entity.Enumeration.StatutTicket;
+import com.sagem.g2ii.Entity.Intervention.SLA;
 import com.sagem.g2ii.Entity.Intervention.Ticket;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -22,11 +23,15 @@ public interface TicketRepo extends JpaRepository<Ticket, Long> {
     List<Ticket> findBySlaRespecte(Boolean slaRespecte);
     Optional<Ticket> findTopByReferenceStartingWithOrderByReferenceDesc(String prefix);
     List<Ticket> findByStatutIn(List<StatutTicket> statuts);
+    long countBySlaAssigneIsNotNullAndSlaPriseEnChargeRespecte(boolean respecte);
+    long countBySlaAssigneIsNotNullAndSlaResolutionRespecte(boolean respecte);
 
 
     // Compter selon le respect global
     long countBySlaAssigneIsNotNull();
     long countBySlaAssigneIsNotNullAndSlaRespecte(Boolean slaRespecte);
+
+    List<Ticket> findBySlaAssigne(SLA sla);
 
     // Compter pour la Prise en Charge
     long countBySlaPriseEnChargeRespecte(Boolean respecte);

@@ -1,5 +1,6 @@
 package com.sagem.g2ii.Entity.Inventaire;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Groupe;
 import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
@@ -99,6 +100,7 @@ public class Article {
 
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<ConsommationPiece> consommations;
 
 

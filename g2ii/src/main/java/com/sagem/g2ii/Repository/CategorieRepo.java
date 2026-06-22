@@ -14,5 +14,6 @@ import java.util.Optional;
 public interface CategorieRepo extends JpaRepository<Categorie, Long> {
     List<Categorie> findByActifTrue();
 
-    Optional<Categorie> findByType(TypeTicket type);
+    // 🎯 Remplacer l'Optional par une List pour encaisser les résultats multiples sans crasher
+    List<Categorie> findByType(TypeTicket type);
 }

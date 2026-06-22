@@ -56,7 +56,7 @@ public class EmailService {
         message.setSubject("Réinitialisation de votre mot de passe");
         message.setText("Bonjour " + emailDestinataire + ",\n\n"
                 + "Nous avons reçu une demande de réinitialisation de votre mot de passe.\n\n"
-                + "LIEN DE RÉINITIALISATION : http://localhost:4200/reset-password?token=" + token + "\n\n"
+                + "LIEN DE RÉINITIALISATION : http://localhost/reset-password?token=" + token + "\n\n"
                 + "Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer ce message.\n\n"
                 + "Cordialement,\n"
                 + "L'équipe Support IT");

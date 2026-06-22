@@ -15,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/demandes")
+@CrossOrigin(origins = "*")
 public class DemandeInscrController {
 
     @Autowired

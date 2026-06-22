@@ -173,9 +173,9 @@ public class ArticleService {
     private void verifierAlertes(Article article) {
         if (article.getQuantiteEnStock() != null) {
             if (article.getQuantiteEnStock() <= article.getSeuilCritique()) {
-                alerteService.creerAlerte(article, "Stock critique pour: " + article.getDesignation());
+                alerteService.creerAlerte(article, "Stock critique pour: " + article.getDesignation()+ article.getCategorie() + article.getReference());
             } else if (article.getQuantiteEnStock() <= article.getSeuilMinimum()) {
-                alerteService.creerAlerte(article, "Stock faible pour: " + article.getDesignation());
+                alerteService.creerAlerte(article, "Stock faible pour: " + article.getDesignation() + article.getCategorie()+ article.getReference());
             }
         }
     }

@@ -29,6 +29,8 @@ public class StockDTO {
     // Relations
     private Long articleId;
 
+    private String articleCategorie;
+
     private String articleReference;
 
     private String articleDesignation;

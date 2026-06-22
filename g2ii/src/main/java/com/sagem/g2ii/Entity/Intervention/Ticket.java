@@ -74,7 +74,7 @@ public class Ticket {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_categorie", nullable = false)
-    @JsonIgnoreProperties("tickets")
+    @JsonIgnoreProperties({"tickets", "slas"}) // 👈 AJOUTEZ "slas" ici pour couper le triangle !
     private Categorie categorie;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -108,5 +108,6 @@ public class Ticket {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_sla")
     @JsonIgnoreProperties({"categorie", "tickets"})
-    private SLA slaAssigne; // 👈 Champ indispensable pour faire le lien avec l'accord de niveau de service
+    // 💡 Sans @ToString au niveau de la classe, l'annotation @ToString.Exclude est inutile et a été retirée d'ici.
+    private SLA slaAssigne;
 }

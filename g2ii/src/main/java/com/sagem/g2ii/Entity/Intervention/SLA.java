@@ -6,6 +6,8 @@ import com.sagem.g2ii.Entity.Enumeration.Priorite;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.List;
+
 /**
  * ✅ Entité SLA (Service Level Agreement)
  * Définit les délais de prise en charge et de résolution par Catégorie et Priorité
@@ -53,8 +55,12 @@ public class SLA {
      */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_categorie", nullable = false)
-    @JsonIgnoreProperties("slas")
+    @JsonIgnoreProperties({"slas", "tickets"}) // 👈 AJOUTEZ "tickets" ici également
     private Categorie categorie;
+
+    @OneToMany(mappedBy = "slaAssigne", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JsonIgnoreProperties("slaAssigne")
+    private List<Ticket> tickets;
 
     /**
      * Getter utilitaire pour accéder facilement à l'ID
