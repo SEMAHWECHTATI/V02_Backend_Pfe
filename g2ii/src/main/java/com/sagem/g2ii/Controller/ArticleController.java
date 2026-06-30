@@ -1,12 +1,14 @@
 package com.sagem.g2ii.Controller;
 
 import com.sagem.g2ii.DTOs.ArticleDTO;
+import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import com.sagem.g2ii.Service.ArticleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -35,10 +37,15 @@ public class ArticleController {
      * ✅ Créer article
      */
     @PostMapping
-    public ResponseEntity<?> creerArticle(@RequestBody ArticleDTO dto) {
+    public ResponseEntity<?> creerArticle(
+            @RequestBody ArticleDTO dto,
+            @AuthenticationPrincipal Utilisateur utilisateurConnecte) { // 🌟 Spring Security injecte l'utilisateur authentifié ici
         try {
-            log.info("POST /articles - Création article");
-            ArticleDTO created = articleService.creerArticle(dto);
+            log.info("POST /articles - Création article par : {}",
+                    utilisateurConnecte != null ? utilisateurConnecte.getUsername() : "Anonyme");
+
+            // 🎯 On passe le DTO ET l'utilisateur connecté au service
+            ArticleDTO created = articleService.creerArticle(dto, utilisateurConnecte);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "✅ Article créé avec succès");
@@ -46,6 +53,7 @@ public class ArticleController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            log.error("❌ Erreur lors de la création de l'article : ", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

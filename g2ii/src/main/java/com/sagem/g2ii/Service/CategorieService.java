@@ -1,14 +1,20 @@
 package com.sagem.g2ii.Service;
 
 import com.sagem.g2ii.Entity.Authentification.Groupe;
+import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import com.sagem.g2ii.Entity.Enumeration.TypeTicket;
 import com.sagem.g2ii.Entity.Enumeration.Priorite;
 import com.sagem.g2ii.Entity.Intervention.Categorie;
 import com.sagem.g2ii.Entity.Intervention.SLA;
 import com.sagem.g2ii.Entity.Enumeration.GroupeTechnicien;
+import com.sagem.g2ii.Entity.Enumeration.ActionAudit;
+import com.sagem.g2ii.Entity.Enumeration.ModuleAudit;
+import com.sagem.g2ii.Entity.Enumeration.NiveauAudit;
 import com.sagem.g2ii.Repository.CategorieRepo;
 import com.sagem.g2ii.Repository.IntGroupe;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,122 +23,81 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * ✅ Service complet pour la gestion des Catégories et leurs SLA associés
+ * ✅ Service complet pour la gestion des Catégories et leurs SLA associés (Audit-LOG inclus)
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class CategorieService {
 
-    @Autowired
-    private CategorieRepo categorieRepository;
+    private final CategorieRepo categorieRepository;
+    private final IntGroupe groupeRepository;
+    private final JournalAuditService journalAuditService;
 
-    @Autowired
-    private IntGroupe groupeRepository;
+    /**
+     * Helper pour récupérer l'utilisateur actuellement connecté via Spring Security Context
+     */
+    private Utilisateur getConnectedUser() {
+        try {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (principal instanceof Utilisateur) {
+                return (Utilisateur) principal;
+            }
+        } catch (Exception e) {
+            // Contexte asynchrone ou démarrage de l'app (système)
+        }
+        return null;
+    }
 
     /**
      * 🔧 Initialiser les catégories par défaut avec leurs SLA
-     * À appeler une seule fois au démarrage de l'application
      */
     @Transactional
     public void initialiserCategories() {
-        System.out.println("\n🔧 [INIT CATÉGORIES] Initialisation des catégories par défaut\n");
+        // 🎯 On vérifie si les catégories système existent déjà globalement
+        // pour éviter d'exécuter des requêtes inutiles et d'écrire de faux logs d'audit.
+        if (categorieRepository.count() > 0) {
+            log.info("✅ [INIT CATÉGORIES] Les catégories système sont déjà présentes en base de données. Saut de l'initialisation.");
+            return;
+        }
 
-        // ✅ ÉTAPE 1 : Récupérer ou créer les groupes existants
+        log.info("🔧 [INIT CATÉGORIES] Initialisation des catégories par défaut...");
+
         Groupe groupeReseaux = getOrCreateGroupe(GroupeTechnicien.IT_Reseaux_Informatique);
         Groupe groupeMaintenance = getOrCreateGroupe(GroupeTechnicien.IT_Maintenance_Informatique);
         Groupe groupeStock = getOrCreateGroupe(GroupeTechnicien.IT_Gestionnaire_Stock);
         Groupe groupeService = getOrCreateGroupe(GroupeTechnicien.IT_Tracabilite_Produit);
         Groupe groupeManagement = getOrCreateGroupe(GroupeTechnicien.IT_Management);
 
-        // ✅ ÉTAPE 2 : Créer les catégories avec leurs SLA
-        creerCategorieAvecSLA(
-                "Panne Réseau",
-                "Problèmes de connectivité, perte d'accès internet, routeur, switch",
-                TypeTicket.INTERVENTION_RESEAUX,
-                groupeReseaux,
-                2  // Délai base en heures
+        creerCategorieAvecSLA("Panne Réseau", "Problèmes de connectivité, perte d'accès internet", TypeTicket.INTERVENTION_RESEAUX, groupeReseaux, 2);
+        creerCategorieAvecSLA("Intervention Informatique", "Maintenance préventive, réparation", TypeTicket.INTERVENTION_INFORMATIQUE, groupeMaintenance, 8);
+        creerCategorieAvecSLA("Demande de Matériel", "Ordinateur, écran, clavier", TypeTicket.DEMANDE_MATERIEL, groupeStock, 120);
+        creerCategorieAvecSLA("Demande de Service IT", "Création de compte, droits d'accès", TypeTicket.DEMANDE_SERVICE, groupeService, 4);
+        creerCategorieAvecSLA("Incident Critique", "Problème affectant plusieurs utilisateurs", TypeTicket.INCIDENT_CRITIQUE, groupeReseaux, 1);
+        creerCategorieAvecSLA("Dérogation", "Demande d'exception ou d'autorisation spéciale", TypeTicket.DEROGATION, groupeManagement, 48);
+        creerCategorieAvecSLA("Amélioration", "Suggestion d'optimisation", TypeTicket.AMELIORATION, groupeManagement, 240);
+
+        // 🌟 LOG SYSTEME GLOBALE : Ne s'exécutera désormais qu'au premier lancement de l'application !
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.SYSTEME,
+                ActionAudit.APPROBATION_DEMANDE, // Remplaçable par ActionAudit.UPDATE_CONFIGURATION si souhaité
+                "Configuration",
+                null,
+                "Initialisation automatique réussie des catégories système et des profils SLA.",
+                null, null, NiveauAudit.INFO, true, null
         );
 
-        creerCategorieAvecSLA(
-                "Intervention Informatique",
-                "Maintenance préventive, réparation, mise à jour logicielle",
-                TypeTicket.INTERVENTION_INFORMATIQUE,
-                groupeMaintenance,
-                8
-        );
-
-        creerCategorieAvecSLA(
-                "Demande de Matériel",
-                "Ordinateur, écran, clavier, souris, périphériques",
-                TypeTicket.DEMANDE_MATERIEL,
-                groupeStock,
-                120
-        );
-
-        creerCategorieAvecSLA(
-                "Demande de Service IT",
-                "Création de compte, droits d'accès, configuration logicielle",
-                TypeTicket.DEMANDE_SERVICE,
-                groupeService,
-                4
-        );
-
-        creerCategorieAvecSLA(
-                "Incident Critique",
-                "Problème affectant plusieurs utilisateurs ou services critiques",
-                TypeTicket.INCIDENT_CRITIQUE,
-                groupeReseaux,
-                1
-        );
-
-        creerCategorieAvecSLA(
-                "Dérogation",
-                "Demande d'exception ou d'autorisation spéciale",
-                TypeTicket.DEROGATION,
-                groupeManagement,
-                48
-        );
-
-        creerCategorieAvecSLA(
-                "Amélioration",
-                "Suggestion d'optimisation ou nouvelle fonctionnalité",
-                TypeTicket.AMELIORATION,
-                groupeManagement,
-                240
-        );
-
-        System.out.println("\n✅ [INIT CATÉGORIES] Catégories initialisées avec succès\n");
+        log.info("✅ [INIT CATÉGORIES] Catégories initialisées avec succès");
     }
 
-    /**
-     * ✅ Créer une catégorie avec ses 4 SLA (Basse, Moyenne, Haute, Critique)
-     *
-     * Pour chaque priorité, les délais sont calculés proportionnellement au délai de base
-     * @param nomCategorie Nom de la catégorie
-     * @param description Description détaillée
-     * @param type Type de ticket associé
-     * @param groupeResponsable Groupe responsable de cette catégorie
-     * @param delaiBaseHeures Délai de base en heures (pour la priorité Moyenne)
-     */
     @Transactional
-    private void creerCategorieAvecSLA(
-            String nomCategorie,
-            String description,
-            TypeTicket type,
-            Groupe groupeResponsable,
-            int delaiBaseHeures) {
-
-        System.out.println("📋 Création: " + nomCategorie);
-
-        // ✅ VALIDATION CORRIGÉE : On récupère une liste maintenant
+    protected void creerCategorieAvecSLA(String nomCategorie, String description, TypeTicket type, Groupe groupeResponsable, int delaiBaseHeures) {
         List<Categorie> existantes = categorieRepository.findByType(type);
 
-        // 🎯 Si la liste n'est pas vide, la catégorie existe déjà, on arrête là
         if (!existantes.isEmpty()) {
-            System.out.println("   ℹ️ Catégorie déjà existante - ignorée");
             return;
         }
 
-        // ✅ CRÉER L'OBJET CATÉGORIE
         Categorie categorie = new Categorie();
         categorie.setNomCategorie(nomCategorie);
         categorie.setDescriptionCategorie(description);
@@ -140,60 +105,30 @@ public class CategorieService {
         categorie.setGroupeResponsable(groupeResponsable);
         categorie.setActif(true);
 
-        // ✅ CRÉER LES 4 SLA (Basse, Moyenne, Haute, Critique)
         List<SLA> slas = new ArrayList<>();
+        slas.add(SLA.builder().nomSLA("SLA Basse Priorité").delaiResolutionHeure(delaiBaseHeures * 2.0).delaiPriseEnChargeHeure(24.0).priorite(Priorite.Basse).categorie(categorie).build());
+        slas.add(SLA.builder().nomSLA("SLA Moyenne Priorité").delaiResolutionHeure((double) delaiBaseHeures).delaiPriseEnChargeHeure(8.0).priorite(Priorite.Moyenne).categorie(categorie).build());
+        slas.add(SLA.builder().nomSLA("SLA Haute Priorité").delaiResolutionHeure(Math.max((double) delaiBaseHeures / 2.0, 1.0)).delaiPriseEnChargeHeure(4.0).priorite(Priorite.Haute).categorie(categorie).build());
+        slas.add(SLA.builder().nomSLA("SLA Critique").delaiResolutionHeure(1.0).delaiPriseEnChargeHeure(1.0).priorite(Priorite.Critique).categorie(categorie).build());
 
-        // 📌 SLA Basse Priorité: Délai x2
-        slas.add(SLA.builder()
-                .nomSLA("SLA Basse Priorité")
-                .delaiResolutionHeure(delaiBaseHeures * 2)  // 2x le délai de base
-                .delaiPriseEnChargeHeure(24)                 // 24h pour prise en charge
-                .priorite(Priorite.Basse)
-                .categorie(categorie)
-                .build());
-
-        // 📌 SLA Moyenne Priorité: Délai de base
-        slas.add(SLA.builder()
-                .nomSLA("SLA Moyenne Priorité")
-                .delaiResolutionHeure(delaiBaseHeures)      // Délai de base
-                .delaiPriseEnChargeHeure(8)                  // 8h pour prise en charge
-                .priorite(Priorite.Moyenne)
-                .categorie(categorie)
-                .build());
-
-        // 📌 SLA Haute Priorité: Délai / 2
-        slas.add(SLA.builder()
-                .nomSLA("SLA Haute Priorité")
-                .delaiResolutionHeure(Math.max(delaiBaseHeures / 2, 1))  // Moitié du délai (min 1h)
-                .delaiPriseEnChargeHeure(4)                  // 4h pour prise en charge
-                .priorite(Priorite.Haute)
-                .categorie(categorie)
-                .build());
-
-        // 📌 SLA Critique: Délai ultra court
-        slas.add(SLA.builder()
-                .nomSLA("SLA Critique")
-                .delaiResolutionHeure(1)                     // 1h max
-                .delaiPriseEnChargeHeure(1)                  // 1h max pour prise en charge
-                .priorite(Priorite.Critique)
-                .categorie(categorie)
-                .build());
-
-        // ✅ ASSIGNER LES SLA À LA CATÉGORIE
         categorie.setSlas(slas);
+        Categorie saved = categorieRepository.save(categorie);
 
-        // ✅ SAUVEGARDER EN BASE
-        Categorie categorieSauvegardee = categorieRepository.save(categorie);
-
-        System.out.println("   ✅ Catégorie créée (Groupe: " + groupeResponsable.getNomGroupes() + ")");
-        System.out.println("      └─ 4 SLA créés (Basse, Moyenne, Haute, Critique)");
+        // 🌟 LOG D'AUDIT : Enregistrement de la création automatique
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.GESTION_APPLICATION,
+                ActionAudit.APPROBATION_DEMANDE,
+                "Categorie",
+                saved.getIdCategorie(),
+                "Création automatique de la catégorie '" + nomCategorie + "' avec ses 4 règles SLA.",
+                null,
+                String.format("{type:'%s', groupe:'%s'}", type, groupeResponsable.getNomGroupes()),
+                NiveauAudit.INFO, true, getConnectedUser()
+        );
     }
-    /**
-     * ✅ Récupérer ou créer un groupe s'il n'existe pas
-     */
+
     @Transactional
-    private Groupe getOrCreateGroupe(GroupeTechnicien groupeEnum) {
-        // ✅ Chercher le groupe par nom
+    protected Groupe getOrCreateGroupe(GroupeTechnicien groupeEnum) {
         Optional<Groupe> existant = groupeRepository.findAll().stream()
                 .filter(g -> g.getNomGroupes().equals(groupeEnum))
                 .findFirst();
@@ -202,103 +137,61 @@ public class CategorieService {
             return existant.get();
         }
 
-        // ✅ Créer le groupe s'il n'existe pas
-        System.out.println("   👥 Création du groupe: " + groupeEnum.name());
-
         Groupe groupe = new Groupe();
         groupe.setNomGroupes(groupeEnum);
         groupe.setDescription("Groupe technique: " + groupeEnum.name());
         groupe.setActif(true);
 
-        return groupeRepository.save(groupe);
+        // Audit de création du groupe technique
+        Groupe savedGroupe = groupeRepository.save(groupe);
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.UTILISATEUR,
+                ActionAudit.CREATE_GROUP,
+                "Groupe",
+                savedGroupe.getId(),
+                "Création automatique du groupe de techniciens : " + groupeEnum.name(),
+                null, null, NiveauAudit.INFO, true, null
+        );
+
+        return savedGroupe;
     }
 
     // ============================================================================
-    // MÉTHODES PUBLIQUES
+    // OPÉRATIONS CRUD MANUELLES (DASHBOARD ADMIN)
     // ============================================================================
 
     /**
-     * 📋 Lister toutes les catégories actives
-     */
-    public List<Categorie> listerCategories() {
-        System.out.println("📋 [LISTER CATÉGORIES] Récupération de toutes les catégories actives");
-        List<Categorie> categories = categorieRepository.findByActifTrue();
-        System.out.println("   Total: " + categories.size() + " catégorie(s)");
-        return categories;
-    }
-
-    /**
-     * 🔍 Récupérer une catégorie par ID
-     */
-    public Categorie getCategorie(Long id) {
-        System.out.println("🔎 [RÉCUPÉRER CATÉGORIE] ID: " + id);
-        return categorieRepository.findById(id)
-                .orElseThrow(() -> {
-                    System.err.println("   ❌ Catégorie non trouvée");
-                    return new RuntimeException("Catégorie non trouvée avec l'ID: " + id);
-                });
-    }
-
-    /**
-     * 🔍 Récupérer une catégorie par TypeTicket
-     */
-    public Categorie getCategorieParType(TypeTicket type) {
-        System.out.println("🔎 [RÉCUPÉRER CATÉGORIE] Type: " + type);
-
-        List<Categorie> categories = categorieRepository.findByType(type);
-
-        // 🎯 Si la liste est vide, on lève l'exception
-        if (categories.isEmpty()) {
-            System.err.println("   ❌ Aucune catégorie trouvée pour ce type");
-            throw new RuntimeException("Catégorie non trouvée pour type: " + type);
-        }
-
-        // 🎯 S'il y a des résultats (un ou plusieurs doublons), on retourne le premier trouvé
-        return categories.get(0);
-    }
-
-    /**
-     * 📍 Récupérer le groupe responsable d'une catégorie
-     */
-    public Groupe getGroupeResponsable(Long idCategorie) {
-        System.out.println("👥 [GROUPE RESPONSABLE] Catégorie ID: " + idCategorie);
-        Categorie categorie = getCategorie(idCategorie);
-        return categorie.getGroupeResponsable();
-    }
-
-    /**
-     * 🔗 Récupérer les SLA d'une catégorie
-     */
-    public List<SLA> getSLAsCategorie(Long idCategorie) {
-        System.out.println("📊 [SLA CATÉGORIE] Catégorie ID: " + idCategorie);
-        Categorie categorie = getCategorie(idCategorie);
-        List<SLA> slas = categorie.getSlas();
-        System.out.println("   Total SLA: " + (slas != null ? slas.size() : 0));
-        return slas;
-    }
-
-    // ============================================================================
-    // OPÉRATIONS CRUD
-    // ============================================================================
-
-    /**
-     * ➕ Créer ou mettre à jour une catégorie
+     * ➕ Créer une nouvelle catégorie via le Dashboard Admin
      */
     @Transactional
     public Categorie creerCategorie(Categorie categorie) {
-        System.out.println("➕ [CRÉER CATÉGORIE] " + categorie.getNomCategorie());
+        log.info("➕ [CRÉER CATÉGORIE] " + categorie.getNomCategorie());
         Categorie saved = categorieRepository.save(categorie);
-        System.out.println("   ✅ Sauvegardée (ID: " + saved.getIdCategorie() + ")");
+
+        // 🌟 LOG D'AUDIT : Utilisation de APPROBATION_DEMANDE ou une action sur mesure
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.GESTION_APPLICATION,
+                ActionAudit.APPROBATION_DEMANDE,
+                "Categorie",
+                saved.getIdCategorie(),
+                "Création manuelle de la catégorie : " + saved.getNomCategorie(),
+                null,
+                String.format("{nom:'%s', actif:%b}", saved.getNomCategorie(), saved.getActif()),
+                NiveauAudit.INFO, true, getConnectedUser()
+        );
+
         return saved;
     }
 
     /**
-     * ✏️ Mettre à jour une catégorie
+     * ✏️ Mettre à jour les informations d'une catégorie
      */
     @Transactional
     public Categorie mettreAJourCategorie(Long id, Categorie categorieUpdated) {
-        System.out.println("✏️ [METTRE À JOUR CATÉGORIE] ID: " + id);
+        log.info("✏️ [METTRE À JOUR CATÉGORIE] ID: " + id);
         Categorie categorie = getCategorie(id);
+
+        String ancienNom = categorie.getNomCategorie();
 
         if (categorieUpdated.getNomCategorie() != null) {
             categorie.setNomCategorie(categorieUpdated.getNomCategorie());
@@ -308,21 +201,43 @@ public class CategorieService {
         }
 
         Categorie saved = categorieRepository.save(categorie);
-        System.out.println("   ✅ Mise à jour effectuée");
+
+        // 🌟 LOG D'AUDIT : Remplacement de CHANGEMENT_MDP par UPDATE_CONFIGURATION ou équivalent
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.GESTION_APPLICATION,
+                ActionAudit.UPDATE_CONFIGURATION,
+                "Categorie",
+                saved.getIdCategorie(),
+                "Mise à jour de la catégorie ID " + id + " (Ancien nom: " + ancienNom + " -> Nouveau: " + saved.getNomCategorie() + ")",
+                String.format("{nom:'%s'}", ancienNom),
+                String.format("{nom:'%s'}", saved.getNomCategorie()),
+                NiveauAudit.INFO, true, getConnectedUser()
+        );
+
         return saved;
     }
 
     /**
      * 🗂️ Archiver une catégorie (Soft Delete)
-     * Passe l'état actif à false au lieu de supprimer physiquement
      */
     @Transactional
     public Categorie archiverCategorie(Long id) {
-        System.out.println("🗂️ [ARCHIVER CATÉGORIE] ID: " + id);
+        log.info("🗂️ [ARCHIVER CATÉGORIE] ID: " + id);
         Categorie categorie = getCategorie(id);
         categorie.setActif(false);
         Categorie saved = categorieRepository.save(categorie);
-        System.out.println("   ✅ Catégorie archivée");
+
+        // 🌟 LOG D'AUDIT
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.GESTION_APPLICATION,
+                ActionAudit.BLOCAGE,
+                "Categorie",
+                saved.getIdCategorie(),
+                "Archivage / Désactivation de la catégorie : " + saved.getNomCategorie(),
+                "{actif:true}", "{actif:false}",
+                NiveauAudit.WARNING, true, getConnectedUser()
+        );
+
         return saved;
     }
 
@@ -331,20 +246,30 @@ public class CategorieService {
      */
     @Transactional
     public Categorie reactiverCategorie(Long id) {
-        System.out.println("🔄 [RÉACTIVER CATÉGORIE] ID: " + id);
+        log.info("🔄 [RÉACTIVER CATÉGORIE] ID: " + id);
         Categorie categorie = categorieRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Catégorie non trouvée"));
         categorie.setActif(true);
         Categorie saved = categorieRepository.save(categorie);
-        System.out.println("   ✅ Catégorie réactivée");
+
+        // 🌟 LOG D'AUDIT
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.GESTION_APPLICATION,
+                ActionAudit.DEBLOCAGE,
+                "Categorie",
+                saved.getIdCategorie(),
+                "Réactivation manuelle de la catégorie : " + saved.getNomCategorie(),
+                "{actif:false}", "{actif:true}",
+                NiveauAudit.INFO, true, getConnectedUser()
+        );
+
         return saved;
     }
 
-    /**
-     * 🔍 Vérifier si une catégorie existe par type
-     */
-    public boolean existeParType(TypeTicket type) {
-        // 🎯 Sur une liste, on vérifie simplement qu'elle n'est pas vide
-        return !categorieRepository.findByType(type).isEmpty();
-    }
+    public List<Categorie> listerCategories() { return categorieRepository.findByActifTrue(); }
+    public Categorie getCategorie(Long id) { return categorieRepository.findById(id).orElseThrow(() -> new RuntimeException("Catégorie introuvable")); }
+    public Categorie getCategorieParType(TypeTicket type) { List<Categorie> c = categorieRepository.findByType(type); if(c.isEmpty()) throw new RuntimeException("Type introuvable"); return c.get(0); }
+    public Groupe getGroupeResponsable(Long id) { return getCategorie(id).getGroupeResponsable(); }
+    public List<SLA> getSLAsCategorie(Long id) { return getCategorie(id).getSlas(); }
+    public boolean existeParType(TypeTicket type) { return !categorieRepository.findByType(type).isEmpty(); }
 }

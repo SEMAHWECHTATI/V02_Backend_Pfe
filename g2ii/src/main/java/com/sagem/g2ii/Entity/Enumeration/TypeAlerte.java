@@ -10,6 +10,7 @@ public enum TypeAlerte {
     nouvelle_assignation("nouvelle assignation"),
     refus_compte("refuse de compte"),
     INFO("information"),
+    Erreur("erreur"),
     WARNING("warning"),
     CRITICAL("critical"),
     RUPTURE_STOCK("Rupture de stock"),

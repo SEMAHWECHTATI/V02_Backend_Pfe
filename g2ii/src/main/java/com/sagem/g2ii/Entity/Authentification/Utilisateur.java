@@ -101,6 +101,7 @@ public class Utilisateur implements UserDetails {
             joinColumns = @JoinColumn(name = "utilisateur_id"),
             inverseJoinColumns = @JoinColumn(name = "groupe_id")
     )
+    @JsonIgnoreProperties("utilisateurs") // 1. Empêche la boucle infinie lors de la sérialisation JSON
     private List<Groupe> groupes;
 
     @OneToOne(mappedBy = "utilisateur", cascade = CascadeType.ALL)

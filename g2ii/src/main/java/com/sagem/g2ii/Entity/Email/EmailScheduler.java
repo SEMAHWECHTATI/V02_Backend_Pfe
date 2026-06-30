@@ -18,8 +18,8 @@ public class EmailScheduler {
     @Autowired
     private JavaMailSender mailSender;
 
-    // Cette tâche s'exécute toutes les 5 minutes (300 000 ms)
-    @Scheduled(fixedDelay = 300000)
+    // ⏱️ S'exécute toutes les 20 secondes (20000 ms) pour une réactivité maximale
+    @Scheduled(fixedDelay = 20000)
     public void renvoyerEmailsEchoues() {
         // On récupère les emails non envoyés qui ont moins de 5 tentatives
         List<EmailQueue> fileDattente = emailQueueRepository.findByEnvoyeFalseAndTentativesLessThan(5);

@@ -24,6 +24,16 @@ public class DetailleEquipementController {
     private final DetailleEquipementService detailleEquipementService;
 
 
+    @GetMapping
+    public ResponseEntity<List<EquipementResponseDto>> getTousLesEquipements() {
+        // Appelle la méthode du service (assurez-vous qu'elle existe, ex: listerTous())
+        List<Equipement> equipements = detailleEquipementService.listerTous();
+        List<EquipementResponseDto> dtos = equipements.stream()
+                .map(this::mapperEnDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
+    }
+
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Object>> getEquipmentStatistics() {
         long total = detailleEquipementService.compterTotal();

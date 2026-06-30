@@ -33,7 +33,7 @@ public class SLA {
      * Exemple: 24h pour un ticket de haute priorité
      */
     @Column(nullable = false)
-    private int delaiResolutionHeure;
+    private Double delaiResolutionHeure;
 
     /**
      * ✅ CORRIGÉ: Nom de colonne cohérent (minuscule "d")
@@ -41,7 +41,7 @@ public class SLA {
      * Exemple: 4h pour un ticket de haute priorité
      */
     @Column(nullable = false)
-    private int delaiPriseEnChargeHeure;
+    private Double delaiPriseEnChargeHeure;
 
     /**
      * Priorité associée à ce SLA

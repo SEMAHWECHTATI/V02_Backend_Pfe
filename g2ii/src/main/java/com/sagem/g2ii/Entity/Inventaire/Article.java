@@ -3,6 +3,7 @@ package com.sagem.g2ii.Entity.Inventaire;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sagem.g2ii.Entity.Authentification.Groupe;
+import com.sagem.g2ii.Entity.Authentification.Utilisateur;
 import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Enumeration.TypeArticle;
 import jakarta.persistence.*;
@@ -57,6 +58,10 @@ public class Article {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fournisseur_id")
     private Fournisseur fournisseur;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utilisateur_id")
+    private Utilisateur creePar;
 
     @Column
     private Double tauxDisponibilite;

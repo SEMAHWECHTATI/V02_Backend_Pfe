@@ -1,17 +1,21 @@
 package com.sagem.g2ii.Service;
 
 import com.sagem.g2ii.DTOs.ArticleDTO;
+import com.sagem.g2ii.Entity.Authentification.Groupe;
+import com.sagem.g2ii.Entity.Authentification.Utilisateur;
+import com.sagem.g2ii.Entity.Enumeration.ActionAudit;
+import com.sagem.g2ii.Entity.Enumeration.ModuleAudit;
+import com.sagem.g2ii.Entity.Enumeration.NiveauAudit;
 import com.sagem.g2ii.Entity.Enumeration.StatutArticle;
 import com.sagem.g2ii.Entity.Enumeration.TypeArticle;
 import com.sagem.g2ii.Entity.Inventaire.Article;
 import com.sagem.g2ii.Entity.Inventaire.Localisation;
 import com.sagem.g2ii.Entity.Inventaire.Fournisseur;
-import com.sagem.g2ii.Repository.ArticleRepository;
-import com.sagem.g2ii.Repository.FournisseurRepository;
-import com.sagem.g2ii.Repository.LocalisationRepository;
+import com.sagem.g2ii.Repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,11 +35,29 @@ public class ArticleService {
     private final LocalisationRepository localisationRepository;
     private final FournisseurRepository fournisseurRepository;
     private final AlerteService alerteService;
+    private final JournalAuditService journalAuditService; // 🌟 Injection du service d'audit
+    private final IntUtilisateur utilisateurRepository;
+    private final IntGroupe groupeRepository;
+
+    /**
+     * Helper pour extraire l'utilisateur connecté depuis le SecurityContext de Spring Security
+     */
+    private Utilisateur getConnectedUser() {
+        try {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (principal instanceof Utilisateur) {
+                return (Utilisateur) principal;
+            }
+        } catch (Exception e) {
+            // Hors contexte session (ex: initialisation automatique au démarrage)
+        }
+        return null;
+    }
 
     /**
      * ✅ Créer un nouvel article
      */
-    public ArticleDTO creerArticle(ArticleDTO dto) {
+    public ArticleDTO creerArticle(ArticleDTO dto, Utilisateur operateur) {
         log.info("📝 Tentative de création de l'article: {} (Catégorie: {})", dto.getDesignation(), dto.getCategorie());
 
         if (dto.getCategorie() == null) {
@@ -43,6 +65,30 @@ public class ArticleService {
         }
         if (dto.getReference() == null || dto.getReference().isBlank()) {
             throw new IllegalArgumentException("La référence de l'article est obligatoire.");
+        }
+
+        // 🌟 SÉCURITÉ & AUTOMATISATION
+        Utilisateur auteurPhysique = null;
+        Groupe groupeDuTechnicien = null;
+
+        if (operateur != null && operateur.getId() != null) {
+            auteurPhysique = utilisateurRepository.findById(operateur.getId()).orElse(null);
+
+            // 🚀 Extraction automatique du groupe depuis la relation @ManyToMany
+            if (auteurPhysique != null && auteurPhysique.getGroupes() != null && !auteurPhysique.getGroupes().isEmpty()) {
+
+                // Stratégie optionnelle : Prendre de préférence un groupe qui n'est pas "Demandeur"
+                groupeDuTechnicien = auteurPhysique.getGroupes().stream()
+                        .filter(g -> g.getNomGroupes() != null && !g.getNomGroupes().name().equals("Demandeur"))
+                        .findFirst()
+                        // Si aucun groupe n'est filtré ou s'il n'y a qu'un groupe, on prend le premier de la liste
+                        .orElse(auteurPhysique.getGroupes().get(0));
+
+                if (groupeDuTechnicien != null) {
+                    log.info("ℹ️ Groupe technique détecté automatiquement pour l'article : {} (ID: {})",
+                            groupeDuTechnicien.getNomGroupes(), groupeDuTechnicien.getId());
+                }
+            }
         }
 
         Article article = Article.builder()
@@ -59,6 +105,8 @@ public class ArticleService {
                 .dateGarantie(dto.getDateGarantie())
                 .seuilMinimum(dto.getSeuilMinimum() != null ? dto.getSeuilMinimum() : 5)
                 .seuilCritique(dto.getSeuilCritique() != null ? dto.getSeuilCritique() : 2)
+                .creePar(auteurPhysique)
+                .groupe(groupeDuTechnicien) // 🌟 Liaison automatique et sécurisée en BDD !
                 .build();
 
         // Liaison de la Localisation
@@ -76,7 +124,22 @@ public class ArticleService {
         }
 
         Article saved = articleRepository.save(article);
-        log.info("✅ Article enregistré avec succès en BD. ID généré: {}", saved.getId());
+        log.info("✅ Article enregistré avec succès en BD. ID: {}, affecté au Groupe ID: {}",
+                saved.getId(), saved.getGroupe() != null ? saved.getGroupe().getId() : "Aucun");
+
+        // Journal d'audit
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.STOCK,
+                ActionAudit.CREATE_MATERIEL,
+                "Article",
+                saved.getId(),
+                String.format("Création de l'article '%s' (Réf: %s) dans le catalogue.", saved.getDesignation(), saved.getReference()),
+                null,
+                String.format("{ref: '%s', designation: '%s', qte: %d}", saved.getReference(), saved.getDesignation(), saved.getQuantiteEnStock()),
+                NiveauAudit.INFO,
+                true,
+                auteurPhysique
+        );
 
         try {
             verifierAlertes(saved);
@@ -85,9 +148,7 @@ public class ArticleService {
         }
 
         return convertToDTO(saved);
-    }
-
-    /**
+    }    /**
      * ✅ Modifier un article
      */
     public ArticleDTO modifierArticle(Long id, ArticleDTO dto) {
@@ -95,6 +156,10 @@ public class ArticleService {
 
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Article non trouvé avec l'ID: " + id));
+
+        // Capture de l'état initial avant modifications
+        String ancienneValeurStr = String.format("{designation: '%s', type: '%s', statut: '%s', pu: %s}",
+                article.getDesignation(), article.getTypeArticle(), article.getStatut(), article.getPrixUnitaire());
 
         article.setCategorie(dto.getCategorie());
         article.setDesignation(dto.getDesignation());
@@ -115,10 +180,63 @@ public class ArticleService {
             article.setFournisseur(null);
         }
 
-        Article updated = articleRepository.save(article);
-        verifierAlertes(updated);
+        Utilisateur modificateur = getConnectedUser();
+        if (modificateur != null && modificateur.getGroupes() != null && !modificateur.getGroupes().isEmpty()) {
+            Groupe groupeModif = modificateur.getGroupes().stream()
+                    .filter(g -> g.getNomGroupes() != null && !g.getNomGroupes().name().equals("Demandeur"))
+                    .findFirst()
+                    .orElse(modificateur.getGroupes().get(0));
+            article.setGroupe(groupeModif);
+        }
 
+        Article updated = articleRepository.save(article);
+
+        String nouvelleValeurStr = String.format("{designation: '%s', type: '%s', statut: '%s', pu: %s}",
+                updated.getDesignation(), updated.getTypeArticle(), updated.getStatut(), updated.getPrixUnitaire());
+
+        // 🌟 LOG D'AUDIT : Modification de la fiche article
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.STOCK,
+                ActionAudit.UPDATE_MATERIEL, // Changement générique d'attributs
+                "Article",
+                updated.getId(),
+                String.format("Modification des propriétés de la fiche article de '%s' (Réf: %s).", updated.getDesignation(), updated.getReference()),
+                ancienneValeurStr,
+                nouvelleValeurStr,
+                NiveauAudit.INFO,
+                true,
+                getConnectedUser()
+        );
+
+        verifierAlertes(updated);
         return convertToDTO(updated);
+    }
+
+    /**
+     * 🗑️ Archiver un article (Suppression logique)
+     */
+    public void archiveArticle(Long id) {
+        Article article = articleRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Article non trouvé"));
+
+        String statutPrecedent = String.valueOf(article.getStatut());
+        article.setStatut(StatutArticle.ARCHIVÉ);
+        Article saved = articleRepository.save(article);
+        log.info("🗑️ Article archivé ID: {}", id);
+
+        // 🌟 LOG D'AUDIT : Archivage catalogue
+        journalAuditService.enregistrerLogAvance(
+                ModuleAudit.STOCK,
+                ActionAudit.DELETE_STOCK, // Passage en statut ARCHIVE / BLOCAGE
+                "Article",
+                id,
+                String.format("Archivage logique de la référence article '%s' dans le catalogue.", saved.getDesignation()),
+                String.format("{statut: '%s'}", statutPrecedent),
+                String.format("{statut: '%s'}", StatutArticle.ARCHIVÉ),
+                NiveauAudit.WARNING,
+                true,
+                getConnectedUser()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -173,9 +291,9 @@ public class ArticleService {
     private void verifierAlertes(Article article) {
         if (article.getQuantiteEnStock() != null) {
             if (article.getQuantiteEnStock() <= article.getSeuilCritique()) {
-                alerteService.creerAlerte(article, "Stock critique pour: " + article.getDesignation()+ article.getCategorie() + article.getReference());
+                alerteService.creerAlerte(article, "Stock critique pour: " + article.getDesignation() + " " + article.getCategorie() + " " + article.getReference());
             } else if (article.getQuantiteEnStock() <= article.getSeuilMinimum()) {
-                alerteService.creerAlerte(article, "Stock faible pour: " + article.getDesignation() + article.getCategorie()+ article.getReference());
+                alerteService.creerAlerte(article, "Stock faible pour: " + article.getDesignation() + " " + article.getCategorie() + " " + article.getReference());
             }
         }
     }
@@ -194,10 +312,11 @@ public class ArticleService {
                 .statut(article.getStatut())
                 .quantiteEnStock(article.getQuantiteEnStock())
                 .prixUnitaire(article.getPrixUnitaire())
-
-                // Extraction sécurisée des informations du Fournisseur
                 .fournisseurId(article.getFournisseur() != null ? article.getFournisseur().getId() : null)
                 .fournisseurNom(article.getFournisseur() != null ? article.getFournisseur().getNom() : "Aucun")
+
+                // 🌟 AJOUT ICI : Permet de renvoyer le groupeId à Angular
+                .groupeId(article.getGroupe() != null ? article.getGroupe().getId() : null)
 
                 .seuilMinimum(article.getSeuilMinimum())
                 .seuilCritique(article.getSeuilCritique())
@@ -211,15 +330,6 @@ public class ArticleService {
                 .valeurTotal(article.getValeurTotal())
                 .build();
     }
-
-    public void archiveArticle(Long id) {
-        Article article = articleRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Article non trouvé"));
-        article.setStatut(StatutArticle.ARCHIVÉ);
-        articleRepository.save(article);
-        log.info("🗑️ Article archivé ID: {}", id);
-    }
-
     @Transactional(readOnly = true)
     public BigDecimal getTotalInventoryValue() {
         BigDecimal total = articleRepository.getTotalInventoryValue();
@@ -234,7 +344,7 @@ public class ArticleService {
 
     @Transactional(readOnly = true)
     public Long getTotalArticles() {
-        return articleRepository.count(); // Utilise directement la méthode native optimisée de JPA
+        return articleRepository.count();
     }
 
     @Transactional(readOnly = true)

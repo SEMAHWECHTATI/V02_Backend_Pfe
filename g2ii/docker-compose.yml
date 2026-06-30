@@ -9,6 +9,7 @@ services:
     image: postgres:17
     container_name: local_Base_donnee_pfe_2026
     restart: always
+    command: postgres -c max_connections=200
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
@@ -22,6 +23,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+
+
+
 
   # ============================================================================
   # 2. Application Backend (Spring Boot)

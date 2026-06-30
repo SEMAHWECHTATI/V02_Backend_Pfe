@@ -2,6 +2,7 @@ package com.sagem.g2ii.Scheduler;
 
 import com.sagem.g2ii.Entity.Enumeration.StatutTicket;
 import com.sagem.g2ii.Entity.Intervention.ConfigurationGlobale;
+import com.sagem.g2ii.Entity.Intervention.SLA;
 import com.sagem.g2ii.Entity.Intervention.Ticket;
 import com.sagem.g2ii.Repository.TicketRepo;
 import com.sagem.g2ii.Service.ConfigurationGlobaleService; // 👈 AJOUTÉ
@@ -11,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -31,11 +33,68 @@ public class SlaSurveillanceScheduler {
     @Autowired
     private EmailService emailService; // 👈 AJOUTÉ (Pour notifier les retards)
 
+
+    // ⏱️ Exécution automatique toutes les minutes
+    @Scheduled( cron = "0 * * * * ?")
+//           fixedRate = 90000  cron = "0 * * * * ?")
+    @Transactional
+    public void verifierDepassementSla() {
+        System.out.println("📊 [SCHEDULER SLA] Démarrage de la vérification automatique...");
+
+        // 1. Récupérer uniquement les tickets actifs (ex: statut 'Nouveau' ou 'En_Cours')
+        List<Ticket> ticketsActifs = ticketRepository.findByStatutIn(List.of(StatutTicket.Nouveau, StatutTicket.En_Cours));
+        System.out.println("   ⚙️ Total de tickets actifs à vérifier: " + ticketsActifs.size());
+        int modifications = 0;
+
+        for (Ticket ticket : ticketsActifs) {
+            SLA sla = ticket.getSlaAssigne();
+
+            // 🛑 Sécurité : Si le ticket n'a pas de SLA associé, on passe au suivant
+            if (sla == null) {
+                continue;
+            }
+
+            // 2. Calculer le temps écoulé depuis la création du ticket
+            LocalDateTime maintenant = LocalDateTime.now();
+            long minutesEcoulees = Duration.between(ticket.getDate(), maintenant).toMinutes();
+
+            // 3. Convertir le délai du SLA (ex: 0.05h) en minutes
+            double delaiPriseEnChargeMinutes = sla.getDelaiPriseEnChargeHeure() * 60;
+
+            // 4. Vérifier si le ticket est en retard ET s'il n'a pas déjà été notifié
+            // (Il faut ajouter un champ boolean 'slaPriseEnChargeDepasse' dans votre entité Ticket pour éviter les doublons)
+            if (minutesEcoulees >= delaiPriseEnChargeMinutes &&
+                    (ticket.getSlaPriseEnChargeDepasse() == null || !ticket.getSlaPriseEnChargeDepasse())) {
+
+                System.out.println("🚨 [ALERTE] Le ticket " + ticket.getReference() + " a dépassé le délai de prise en charge !");
+// 1. On vérifie si l'alerte a DEJA été envoyée (ou si le SLA est marqué dépassé)
+                if ((ticket.getSlaPriseEnChargeDepasse() != null && ticket.getSlaPriseEnChargeDepasse())
+                        || (ticket.getAlertePriseEnChargeEnvoyee() != null && ticket.getAlertePriseEnChargeEnvoyee())) {
+                    continue; // Déjà traité, on passe au ticket suivant sans rien faire
+                }
+
+// 2. Envoi du mail (pensez à utiliser la version texte clair !)
+                emailService.envoyerAlerteDepassementPriseEnCharge(ticket);
+
+// 3. Sécurisation : ON MET À JOUR LES DEUX DRAPEAUX !
+                ticket.setSlaPriseEnChargeDepasse(true);
+                ticket.setAlertePriseEnChargeEnvoyee(true); // 👈 C'est cette ligne qui manquait !
+
+// 4. On sauvegarde en base de données
+                ticketRepository.save(ticket);
+                modifications++;
+            }
+        }
+
+        System.out.println("✅ [SCHEDULER SLA] Fin de la vérification. " + modifications + " ticket(s) modifié(s) et injecté(s).");
+    }
+
+
     /**
      * S'exécute automatiquement toutes les 10 sec (10000 ms)
      * Vérifie les dépassements de SLA pour les tickets actifs (Nouveau ou En_Cours)
      */
-    @Scheduled(fixedRate = 10000)
+    @Scheduled(fixedRate = 90000)
     @Transactional
     public void verifierDepassementsSlaEnTempsReel() {
         System.out.println("⏰ [SCHEDULER SLA] Tentative de vérification des dépassements SLA à " + LocalDateTime.now());

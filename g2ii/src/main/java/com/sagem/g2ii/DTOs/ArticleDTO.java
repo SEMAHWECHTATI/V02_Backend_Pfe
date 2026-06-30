@@ -40,4 +40,6 @@ public class ArticleDTO {
     private LocalDateTime dateCreation;
     private LocalDateTime dateModification;
     private BigDecimal valeurTotal;
+
+    private Long groupeId;
 }

@@ -27,6 +27,10 @@ public class DetailleEquipementService {
     private final ArticleRepository articleRepository;
     private final AlerteService alerteService; // 🛠️ Injection du service d'alerte (Tâche 5)
 
+    public List<Equipement> listerTous() {
+        return equipementRepository.findAll();
+    }
+
     public long compterTotal() {
         return equipementRepository.count();
     }

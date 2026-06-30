@@ -15,4 +15,6 @@ public interface IntGroupe extends JpaRepository<Groupe, Long> {
     Optional<Groupe> findByNomGroupes(GroupeTechnicien nomGroupes);
 
     List<Groupe> findByActifTrue();
+
+
 }

@@ -70,6 +70,15 @@ public class Ticket {
     @Column(length = 1000)
     private String noteResolution;
 
+    @Column(name = "sla_prise_en_charge_depasse")
+    private Boolean slaPriseEnChargeDepasse = false;
+
+    @Column(name = "sla_resolution_depasse")
+    private Boolean slaResolutionDepasse = false;
+
+    @Column(name = "alerte_prise_en_charge_envoyee")
+    private Boolean alertePriseEnChargeEnvoyee = false;
+
     // ===== RELATIONS =====
 
     @ManyToOne(fetch = FetchType.EAGER)
